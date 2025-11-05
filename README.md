@@ -1,3 +1,3 @@
 # p5-womancala
-p5-womancala is a great name proposed by Dr. Fogarty because that is the most important person in the world.
+p5-womancala created by GitHub Classroom is a great name stolen by this group
 Members: Mehmet Berke Dur, Dana Gingrey, Sydney Cox, Paige Elaine Grantz, Seth Fogarty
