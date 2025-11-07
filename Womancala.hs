@@ -31,7 +31,7 @@ type Game = (Turn, Board)
 -- -----------------------------------------
 
 prettyPrint :: Game -> String
-prettyPrint (turn,board) = "Current turn: "++(printPlayer currentTurn)++"\n"++
+prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
                             "-----------------------------------------"++"\n"++
                             "|   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
                             (prettyPrintMiddle board)++"\n"++
