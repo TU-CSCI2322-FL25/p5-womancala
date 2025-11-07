@@ -17,6 +17,8 @@ type Winner = Maybe Player
 type Move = Index
 type Game = (Turn, Board)
 
+---------------------------------------
+
 ------------- Story Three ---------------
 
 completeMove :: Game -> Move -> Game
@@ -26,3 +28,43 @@ completeMove (turn, board) move =
         distributeMarbles (turn, board) 
         
 -----------------------------------------
+
+------------- Story Five ---------------
+--To see correct indentation in ghci, put putStr before the prettyPrint call and pass in the game you want printed
+--It should print well, if not, let me (Paige) know
+--Template:
+-- Current turn: P_
+-- -----------------------------------------
+-- |    |    |    |    |    |    |    |    |
+-- |    |-----------------------------|    |
+-- |    |    |    |    |    |    |    |    |
+-- -----------------------------------------
+
+prettyPrint :: Game -> String
+prettyPrint (turn,board) = "Current turn: "++(printPlayer currentTurn)++"\n"++
+                            "-----------------------------------------"++"\n"++
+                            "|   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
+                            (prettyPrintMiddle board)++"\n"++
+                            "|   "++(prettyPrintSide board sideOne)++"\n"++
+                            "-----------------------------------------"++ "\n"
+  where --
+        prettyPrintSide :: Board -> [Index]-> String --Will print a side minus the first "|"
+        prettyPrintSide board [] = " |    |"
+        prettyPrintSide board (index:indexes) = " | "++(spacedLookup index board) ++ prettyPrintSide board indexes
+        --
+        prettyPrintMiddle :: Board -> String
+        prettyPrintMiddle board = "| " ++
+                                  (spacedLookup storeTwo board) ++
+                                  " |-----------------------------| " ++
+                                  (spacedLookup storeOne board) ++
+                                  " |"
+        --
+        spacedLookup :: Int -> Board -> String
+        spacedLookup key list = if result>9 then show result else " "++(show result)
+            where (Just result) = lookup key list
+        --
+        printPlayer :: Player -> String
+        printPlayer P1 = "P1" 
+        printPlayer P2 = "P2"
+
+----------------------------------------
