@@ -21,10 +21,8 @@ type Game = (Turn, Board)
 
 
 ------------- Story Five ---------------
---Pretty-print a game into a string, 
---with a function of type Game -> String.
---You should not override the Show typeclass.
---This is primarily for debugging purposes.
+--To see correct indentation in ghci, put putStr before the prettyPrint call and pass in the game you want printed
+--It should print well, if not, let me (Paige) know
 --Template:
 -- Current turn: P_
 -- -----------------------------------------
@@ -32,11 +30,6 @@ type Game = (Turn, Board)
 -- |    |-----------------------------|    |
 -- |    |    |    |    |    |    |    |    |
 -- -----------------------------------------
-
-testBoard :: Board
-testBoard = [(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4)]
-testBoardOne :: Board
-testBoardOne = [(0,20),(1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,20),(8,8),(9,9),(10,10),(11,11),(12,12),(13,13)]
 
 prettyPrint :: Game -> String
 prettyPrint (turn,board) = "Current turn: "++(printPlayer currentTurn)++"\n"++
