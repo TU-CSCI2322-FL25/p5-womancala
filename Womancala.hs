@@ -19,16 +19,6 @@ type Game = (Turn, Board)
 
 ---------------------------------------
 
-------------- Story Three ---------------
-
-completeMove :: Game -> Move -> Game
-completeMove (turn, board) move = 
-    where
-        distributeMarbles :: Game -> Index -> Int -> (Board,Index) --Outputs the board after and the Index it landed on
-        distributeMarbles (turn, board) 
-        
------------------------------------------
-
 ------------- Story Five ---------------
 --To see correct indentation in ghci, put putStr before the prettyPrint call and pass in the game you want printed
 --It should print well, if not, let me (Paige) know
