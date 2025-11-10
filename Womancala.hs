@@ -87,22 +87,22 @@ completeMove (turn, board) move
 
 prettyPrint :: Game -> String
 prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
-                            "-----------------------------------------"++"\n"++
-                            "|   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
+                            printTopLine ++"\n"++
+                            "\x2551   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
                             (prettyPrintMiddle board)++"\n"++
-                            "|   "++(prettyPrintSide board sideOne)++"\n"++
-                            "-----------------------------------------"++ "\n"
+                            "\x2551   "++(prettyPrintSide board sideOne)++"\n"++
+                            printBottomLine ++ "\n"
   where --
         prettyPrintSide :: Board -> [Index]-> String --Will print a side minus the first "|"
-        prettyPrintSide board [] = " |    |"
-        prettyPrintSide board (index:indexes) = " | "++(spacedLookup index board) ++ prettyPrintSide board indexes
+        prettyPrintSide board [] = " \x2502    \x2551"
+        prettyPrintSide board (index:indexes) = " \x2502 "++(spacedLookup index board) ++ prettyPrintSide board indexes
         --
         prettyPrintMiddle :: Board -> String
-        prettyPrintMiddle board = "| " ++
+        prettyPrintMiddle board = "\x2551 " ++
                                   (spacedLookup storeTwo board) ++
-                                  " |-----------------------------| " ++
+                                  printMiddleLine++
                                   (spacedLookup storeOne board) ++
-                                  " |"
+                                  " \x2551"
         --
         spacedLookup :: Int -> Board -> String
         spacedLookup key list = if result>9 then show result else " "++(show result)
@@ -111,5 +111,20 @@ prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
         printPlayer :: Player -> String
         printPlayer P1 = "P1" 
         printPlayer P2 = "P2"
+        --
+        printTopLine :: String
+        printTopLine = "\x2554"++(take 4 (repeat '\x2550'))++(aux ("\x2564"++(take 4 (repeat '\x2550'))) 7)++"\x2557"
+            where aux string 1 = string
+                  aux string num = string++(aux string (num-1))
+        --
+        printBottomLine :: String
+        printBottomLine = "\x255A"++(take 4 (repeat '\x2550'))++(aux ("\x2567"++(take 4 (repeat '\x2550'))) 7)++"\x255D"
+            where aux string 1 = string
+                  aux string num = string++(aux string (num-1))
+        --
+        printMiddleLine :: String
+        printMiddleLine = " \x251C"++(take 4 (repeat '\x2500'))++(aux ("\x253C"++(take 4 (repeat '\x2500'))) 5)++"\x2524 "
+            where aux string 1 = string
+                  aux string num = string++(aux string (num-1))
 
 ----------------------------------------
