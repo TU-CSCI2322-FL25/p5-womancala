@@ -26,20 +26,21 @@ initialState = (P1,[(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),
 -- If it doesn't work right let me (Sydney) know
 -- This function does not check if the game is over after a move or if a move is legal
 completeMove :: Game -> Move -> Game
-completeMove (turn, board) move | landingIndex == 0 && turn == P2 = (P2, updatedBoard)
-                                | landingIndex == 7 && turn == P1 = (P1, updatedBoard)
-                                | amountAtIndex == 1 && isOnSide landingIndex turn = 
-                                    let opposite = landingIndex + 2*(7-landingIndex)
-                                        (Just oppositeMarbles) = lookup opposite updatedBoard
-                                        boardClearOpposite = changeValue opposite 0 updatedBoard
-                                        boardClearSame = changeValue landingIndex 0 boardClearOpposite
-                                        (Just storeValue) = if turn == P1 then lookup 7 boardClearSame else lookup 0 boardClearSame 
-                                        finalBoard = 
-                                            if turn == P1 
-                                            then changeValue 7 (storeValue+oppositeMarbles+1) boardClearSame
-                                            else changeValue 0 (storeValue+oppositeMarbles+1) boardClearSame
-                                    in (if turn == P1 then P2 else P1, finalBoard)
-                                | otherwise = ((if turn == P1 then P2 else P1), updatedBoard)
+completeMove (turn, board) move 
+        | landingIndex == 0 && turn == P2 = (P2, updatedBoard)
+        | landingIndex == 7 && turn == P1 = (P1, updatedBoard)
+        | amountAtIndex == 1 && isOnSide landingIndex turn = 
+            let opposite = landingIndex + 2*(7-landingIndex)
+                (Just oppositeMarbles) = lookup opposite updatedBoard
+                boardClearOpposite = changeValue opposite 0 updatedBoard
+                boardClearSame = changeValue landingIndex 0 boardClearOpposite
+                (Just storeValue) = if turn == P1 then lookup 7 boardClearSame else lookup 0 boardClearSame 
+                finalBoard = 
+                    if turn == P1 
+                    then changeValue 7 (storeValue+oppositeMarbles+1) boardClearSame
+                    else changeValue 0 (storeValue+oppositeMarbles+1) boardClearSame
+            in (if turn == P1 then P2 else P1, finalBoard)
+        | otherwise = ((if turn == P1 then P2 else P1), updatedBoard)
     where   (Just numMarbles) = lookup move board
             (distributeBoard, landingIndex, amountAtIndex) = distributeMarbles (turn, board) (nextIndex move turn) numMarbles 
             updatedBoard = changeValue move 0 distributeBoard
