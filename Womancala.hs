@@ -14,6 +14,7 @@ type Turn = Player
 type Winner = Maybe Player
 type Move = Index
 type Game = (Turn, Board)
+---------------------------------------
 
 initialState :: Game
 initialState = (P1,[(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4)])
@@ -128,3 +129,16 @@ prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
                   aux string num = string++(aux string (num-1))
 
 ----------------------------------------
+------------- Story Two ---------------
+-- Check who has won the game state, if anyone, with a function of type  Game -> Winner.
+-- Without error handling for now (11-11)
+checkWinner :: Game -> Winner
+checkWinner (turn, board) =
+let 
+    pitP1 = lookup storeOne board
+    pitP2 = lookup storeTwo board
+in
+    if pitP1 > pitP2 then return Just P1
+    else if pit2 > pit1 then return Just P2
+    else Nothing 
+---------------------------------------
