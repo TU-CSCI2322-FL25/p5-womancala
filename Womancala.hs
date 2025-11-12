@@ -11,7 +11,7 @@ sideTwo = [8..13] -- Indexes for P2 pits
 type Board = [Pit] -- Will only ever be 14 long
 data Player = P1 | P2 deriving Eq
 type Turn = Player
-type Winner = Maybe Player
+type Winner = Win Player | Tie
 type Move = Index
 type Game = (Turn, Board)
 ---------------------------------------
@@ -129,9 +129,12 @@ prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
                   aux string num = string++(aux string (num-1))
 
 ----------------------------------------
-------------- Story Two ---------------
+------------- Story Two ----------------
 -- Check who has won the game state, if anyone, with a function of type  Game -> Winner.
 -- Without error handling for now (11-11)
+-- Add part - if one side is empty, the game is over and the other player gets all marbles on their side added to their store.
+        --    then check each pit to determine the winner
+        -- check if one side is empty for each player!
 checkWinner :: Game -> Winner
 checkWinner (turn, board) =
 let 
