@@ -11,17 +11,14 @@ sideTwo = [8..13] -- Indexes for P2 pits
 type Board = [Pit] -- Will only ever be 14 long
 data Player = P1 | P2 deriving Eq
 type Turn = Player
-type Winner = Win Player | Tie
+data Winner = Win Player | Tie
 type Move = Index
 type Game = (Turn, Board)
----------------------------------------
 
 initialState :: Game
 initialState = (P1,[(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4)])
 
-
 ---------------------------------------
-
 ------------- Story Three ---------------
 -- Completes the move without any error handling (yet)
 -- If it doesn't work right let me (Sydney) know
@@ -74,7 +71,22 @@ completeMove (turn, board) move
                 else (key, value):(changeValue targetKey newValue lst) 
         
 -----------------------------------------
+------------- Story Four ---------------
+--Creates the list of legal moves from a game state
+--by checking if the pit is on the current player's side and not empty.
+validMoves :: Game -> [Move]
+validMoves (p, board) = 
+    map (fst) $ filter (validPit) board
+    where 
+        side = if p == P1 then sideOne else sideTwo
+        validPit :: Pit -> Bool
+        validPit (idx, num) = (idx `elem` side) && (num > 0)
 
+--Extra: Checks if a move is valid given a game (Might be handy for error handling idk)
+isValidMove :: Game -> Move -> Bool
+isValidMove game move = move `elem` (validMoves game)
+
+---------------------------------------
 ------------- Story Five ---------------
 --To see correct indentation in ghci, put putStr before the prettyPrint call and pass in the game you want printed
 --It should print well, if not, let me (Paige) know
