@@ -152,7 +152,7 @@ isValidMove game move = move `elem` (validMoves game)
 -- -----------------------------------------
 
 prettyPrint :: Game -> String
-prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
+prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
                             printTopLine ++"\n"++
                             "\x2551   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
                             (prettyPrintMiddle board)++"\n"++
@@ -173,10 +173,6 @@ prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
         spacedLookup :: Int -> Board -> String
         spacedLookup key list = if result>9 then show result else " "++(show result)
             where (Just result) = lookup key list
-        --
-        printPlayer :: Player -> String
-        printPlayer P1 = "P1" 
-        printPlayer P2 = "P2"
         --
         printTopLine :: String
         printTopLine = "\x2554"++(take 4 (repeat '\x2550'))++(aux ("\x2564"++(take 4 (repeat '\x2550'))) 7)++"\x2557"
