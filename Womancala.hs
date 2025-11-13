@@ -189,4 +189,4 @@ checkWinner (turn, board)
         -- If one side is empty, the other player gets all marbles on their side added to their store
         p1Total = if isSideEmpty sideTwo then p1Store + p1SideTotal else p1Store
         p2Total = if isSideEmpty sideOne then p2Store + p2SideTotal else p2Store
-    
+
