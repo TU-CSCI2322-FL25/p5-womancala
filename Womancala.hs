@@ -47,10 +47,10 @@ checkWinner (turn, board)
         isSideEmpty :: [Index] -> Bool
         isSideEmpty [] = True
         isSideEmpty (index:indexes) = 
-            let (Just numMarbles) = lookup index board
+            let (Just numMarbles) = lookup index board        --TODO Basically fromJust, should change in error handling
             in if numMarbles > 0 then False else isSideEmpty indexes
 
-        -- lookUp value to return an Int 
+        -- lookUp value to return an Int
         lookupValue :: Index -> Int
         lookupValue i = case lookup i board of
                             Just v  -> v
@@ -61,8 +61,9 @@ checkWinner (turn, board)
         p2Store = lookupValue storeTwo
 
         -- Total of each players side pits
-        p1SideTotal = sum [lookupValue i | i <- sideOne]
-        p2SideTotal = sum [lookupValue i | i <- sideTwo]
+        p1SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` sideOne]
+        --p1SideTotal = sum [lookupValue i | i <- sideOne]
+        p2SideTotal = sum [lookupValue i | i <- sideTwo] --TODO repeat sidetotal for p1 on p2
 
         -- If one side is empty, the other player gets all marbles on their side added to their store
         p1Total = if isSideEmpty sideTwo then p1Store + p1SideTotal else p1Store
@@ -83,31 +84,31 @@ completeMove (turn, board) move
                 (Just oppositeMarbles) = lookup opposite updatedBoard
                 boardClearOpposite = changeValue opposite 0 updatedBoard
                 boardClearSame = changeValue landingIndex 0 boardClearOpposite
-                (Just storeValue) = if turn == P1 then lookup 7 boardClearSame else lookup 0 boardClearSame 
+                (Just storeValue) = if turn == P1 then lookup 7 boardClearSame else lookup 0 boardClearSame --TODO Could be a seperate updateStore function 
                 finalBoard = 
                     if turn == P1 
                     then changeValue 7 (storeValue+oppositeMarbles+1) boardClearSame
                     else changeValue 0 (storeValue+oppositeMarbles+1) boardClearSame
-            in (if turn == P1 then P2 else P1, finalBoard)
+            in (if turn == P1 then P2 else P1, finalBoard) --TODO Opponent function
         | otherwise = ((if turn == P1 then P2 else P1), updatedBoard)
-    where   (Just numMarbles) = lookup move board
+    where   (Just numMarbles) = lookup move board  --TODO bad pattern matching
             (distributeBoard, landingIndex, amountAtIndex) = distributeMarbles (turn, board) (nextIndex move turn) numMarbles 
             updatedBoard = changeValue move 0 distributeBoard
 
             distributeMarbles :: Game -> Index -> Int -> (Board,Index,Int) --Outputs the board after, the index landed on, and how many marbles in that pit
-            distributeMarbles (turn, board) index 1 = (addOneToIndex index board,index,numMarbles+1)
+            distributeMarbles (turn, board) index 1 = (addOneToIndex index board,index,numMarbles+1) --TODO change implementation
                 where (Just numMarbles) = lookup index board  
             distributeMarbles (turn, board) index numMarbles = 
                 distributeMarbles (turn, addOneToIndex index board) (nextIndex index turn) (numMarbles-1)
 
-            nextIndex :: Index -> Turn -> Index 
+            nextIndex :: Index -> Turn -> Index  --TODO pattern matching instead of guards
             nextIndex index turn | index == 13 && turn == P1 = 1
-                                | index == 6 && turn == P2 = 8
-                                | index == 13 = 0
-                                | otherwise = index + 1
+                                 | index == 6 && turn == P2 = 8
+                                 | index == 13 = 0
+                                 | otherwise = index + 1
 
-            addOneToIndex :: (Eq a, Num b) => a -> [(a,b)] -> [(a,b)]
-            addOneToIndex targetKey ((key,value):lst) = 
+            addOneToIndex :: (Eq a, Num b) => a -> [(a,b)] -> [(a,b)]  --Could be add k top level
+            addOneToIndex targetKey ((key,value):lst) = --Add error case for empty list
                 if key == targetKey
                 then (key,value+1):lst
                 else (key,value):(addOneToIndex targetKey lst) 
@@ -115,8 +116,8 @@ completeMove (turn, board) move
             isOnSide :: Index -> Turn -> Bool
             isOnSide index turn = (turn == P1 && index `elem` sideOne) || (turn == P2 && index `elem` sideTwo)
 
-            changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]
-            changeValue targetKey newValue ((key,value):lst) = 
+            changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  --Could be top level
+            changeValue targetKey newValue ((key,value):lst) =  --Add error case for empty list
                 if key == targetKey
                 then (key, newValue):lst
                 else (key, value):(changeValue targetKey newValue lst) 
@@ -128,15 +129,15 @@ completeMove (turn, board) move
 --by checking if the pit is on the current player's side and not empty.
 validMoves :: Game -> [Move]
 validMoves (p, board) = 
-    map (fst) $ filter (validPit) board
+    map (fst) $ filter validPit board    --TODO Might be able to be written in a list comprehension
     where 
         side = if p == P1 then sideOne else sideTwo
         validPit :: Pit -> Bool
         validPit (idx, num) = (idx `elem` side) && (num > 0)
 
 --Extra: Checks if a move is valid given a game (Might be handy for error handling idk)
-isValidMove :: Game -> Move -> Bool
-isValidMove game move = move `elem` (validMoves game)
+isValidMove :: Game -> Move -> Bool          --TODO Inefficient
+isValidMove game@(p,board) move = move `elem` (validMoves game)
 
 ---------------------------------------
 
@@ -151,7 +152,7 @@ isValidMove game move = move `elem` (validMoves game)
 -- |    |    |    |    |    |    |    |    |
 -- -----------------------------------------
 
-prettyPrint :: Game -> String
+prettyPrint :: Game -> String --TODO Could use unline
 prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
                             printTopLine ++"\n"++
                             "\x2551   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
@@ -172,9 +173,9 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
         --
         spacedLookup :: Int -> Board -> String
         spacedLookup key list = if result>9 then show result else " "++(show result)
-            where (Just result) = lookup key list
+            where (Just result) = lookup key list     --TODO Unsafe pattern matching
         --
-        printTopLine :: String
+        printTopLine :: String   --TODO could be simplier w/ concat & replicate
         printTopLine = "\x2554"++(take 4 (repeat '\x2550'))++(aux ("\x2564"++(take 4 (repeat '\x2550'))) 7)++"\x2557"
             where aux string 1 = string
                   aux string num = string++(aux string (num-1))
