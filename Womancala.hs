@@ -11,7 +11,7 @@ sideTwo = [8..13] -- Indexes for P2 pits
 type Board = [Pit] -- Will only ever be 14 long
 data Player = P1 | P2 deriving Eq
 type Turn = Player
-type Winner = Win Player | Tie
+type Winner = Win Player | Tie 
 type Move = Index
 type Game = (Turn, Board)
 ---------------------------------------
@@ -129,19 +129,52 @@ prettyPrint (turn,board) = "Current turn: "++(printPlayer turn)++"\n"++
                   aux string num = string++(aux string (num-1))
 
 ----------------------------------------
+
 ------------- Story Two ----------------
 -- Check who has won the game state, if anyone, with a function of type  Game -> Winner.
--- Without error handling for now (11-11)
--- Add part - if one side is empty, the game is over and the other player gets all marbles on their side added to their store.
-        --    then check each pit to determine the winner
-        -- check if one side is empty for each player!
-checkWinner :: Game -> Winner
-checkWinner (turn, board) =
-let 
-    pitP1 = lookup storeOne board
-    pitP2 = lookup storeTwo board
-in
-    if pitP1 > pitP2 then return Just P1
-    else if pit2 > pit1 then return Just P2
-    else Nothing 
----------------------------------------
+
+--Check if either player’s side is empty.
+--If one side is empty:
+--Add all marbles from the opposing side to that player’s store.
+--Then compare the two stores to determine the winner, or a tie.
+--If neither side is empty:
+--The game should continue - return Nothing
+
+-- I changed it to return Maybe Winner because if no side is empty there is no winner yet, so I return Nothing.  
+-- Can also return NoWinner in this case, and reflect Winner above to be  Winner = Win Player | Tie | NoWinner so 
+-- it can return a Winner instead of a Maybe Winner
+checkWinner :: Game -> Maybe Winner
+checkWinner (turn, board) 
+    -- If one side is empty, game ends. Winner is determined by store total counts
+    | isSideEmpty sideOne || isSideEmpty sideTwo =
+        if p1Total > p2Total then Just (Win P1)
+        else if p2Total > p1Total then Just (Win P2)
+        else Just Tie
+    -- Otherwise no sides are empty - no winner yet
+    | otherwise = Nothing
+    where
+        -- Checks if pits on a side are all empty
+        isSideEmpty :: [Index] -> Bool
+        isSideEmpty [] = True
+        isSideEmpty (index:indexes) = 
+            let (Just numMarbles) = lookup index board
+            in if numMarbles > 0 then False else isSideEmpty indexes
+
+        -- lookUp value to return an Int 
+        lookupValue :: Index -> Int
+        lookupValue i = case lookup i board of
+                            Just v  -> v
+                            Nothing -> 0
+
+        -- Total of marbles in each players Store
+        p1Store = lookupValue storeOne 
+        p2Store = lookupValue storeTwo
+
+        -- Total of each players side pits
+        p1SideTotal = sum [lookupValue i | i <- sideOne]
+        p2SideTotal = sum [lookupValue i | i <- sideTwo]
+
+        -- If one side is empty, the other player gets all marbles on their side added to their store
+        p1Total = if isSideEmpty sideTwo then p1Store + p1SideTotal else p1Store
+        p2Total = if isSideEmpty sideOne then p2Store + p2SideTotal else p2Store
+    
