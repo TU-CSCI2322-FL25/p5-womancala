@@ -4,10 +4,6 @@
 
 type Index = Int
 type Pit = (Index, Int) --(Index, Num of Marbles)
-storeOne = 7 --Store index for P1
-storeTwo = 0 --Store index for P2
-sideOne = [1..6] --Indexes for P1 pits
-sideTwo = [8..13] -- Indexes for P2 pits
 type Board = [Pit] -- Will only ever be 14 long
 data Player = P1 | P2 deriving (Eq,Show)
 type Turn = Player
@@ -15,8 +11,24 @@ data Winner = Win Player | Tie deriving (Eq,Show)
 type Move = Index
 type Game = (Turn, Board)
 
+storeOne = store P1
+storeTwo = store P2
+sideOne = pits P1
+sideTwo = pits P2
+
+store :: Player -> Index
+store P1 = 7
+store P2 = 0
+
+pits :: Player -> [Index]
+pits P1 = [1..6]
+pits P2 = [8..13]
+
+initialBoard :: Board
+initialBoard = [(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4)]
+
 initialState :: Game
-initialState = (P1,[(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4)])
+initialState = (P1,initialBoard)
 
 ---------------------------------------
 
@@ -89,17 +101,17 @@ completeMove (turn, board) move
                     if turn == P1 
                     then changeValue 7 (storeValue+oppositeMarbles+1) boardClearSame
                     else changeValue 0 (storeValue+oppositeMarbles+1) boardClearSame
-            in (if turn == P1 then P2 else P1, finalBoard) --TODO Opponent function
-        | otherwise = ((if turn == P1 then P2 else P1), updatedBoard)
+            in (opponent turn, finalBoard) --TODO Opponent function
+        | otherwise = (opponent turn, updatedBoard)
     where   (Just numMarbles) = lookup move board  --TODO bad pattern matching
             (distributeBoard, landingIndex, amountAtIndex) = distributeMarbles (turn, board) (nextIndex move turn) numMarbles 
             updatedBoard = changeValue move 0 distributeBoard
 
+            isOnSide :: Index -> Turn -> Bool
+            isOnSide index turn = (turn == P1 && index `elem` sideOne) || (turn == P2 && index `elem` sideTwo)
+
             distributeMarbles :: Game -> Index -> Int -> (Board,Index,Int) --Outputs the board after, the index landed on, and how many marbles in that pit
-            distributeMarbles (turn, board) index 1 = (addOneToIndex index board,index,numMarbles+1) --TODO change implementation
-                where (Just numMarbles) = lookup index board  
-            distributeMarbles (turn, board) index numMarbles = 
-                distributeMarbles (turn, addOneToIndex index board) (nextIndex index turn) (numMarbles-1)
+            distributeMarbles (turn, board) startIndex
 
             nextIndex :: Index -> Turn -> Index  --TODO pattern matching instead of guards
             nextIndex index turn | index == 13 && turn == P1 = 1
@@ -107,20 +119,37 @@ completeMove (turn, board) move
                                  | index == 13 = 0
                                  | otherwise = index + 1
 
-            addOneToIndex :: (Eq a, Num b) => a -> [(a,b)] -> [(a,b)]  --Could be add k top level
-            addOneToIndex targetKey ((key,value):lst) = --Add error case for empty list
-                if key == targetKey
-                then (key,value+1):lst
-                else (key,value):(addOneToIndex targetKey lst) 
+opponent :: Player -> Player
+opponent P1 = P2
+opponent P2 = P1
 
-            isOnSide :: Index -> Turn -> Bool
-            isOnSide index turn = (turn == P1 && index `elem` sideOne) || (turn == P2 && index `elem` sideTwo)
+indexDistance :: Turn -> Index -> Index -> Int
+indexDistance turn a b 
+    | a <= b     = b - a
+    | turn == P1 = 13+(b-a)
+    | otherwise  = (14-a)+b-(b `div` 7)
+            
+updatePit :: Turn -> Index -> Int -> Pit -> Pit --Turn, starting index, nummarbles, base pit, new pit
+updatePit turn startIndex numMarbles oldPit@(pitIndex, oldMarbles) 
+    | startIndex == pitIndex            = (startIndex, numMarbles `div` 13)
+    | pitIndex == store (opponent turn) = oldPit 
+    | otherwise                         = newPit
+    where distAdd = if indexDistance turn startIndex pitIndex <= (numMarbles `mod` 13) then 1 else 0
+          newPit = (pitIndex, oldMarbles + (numMarbles `div` 13) + distAdd)
 
-            changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  --Could be top level
-            changeValue targetKey newValue ((key,value):lst) =  --Add error case for empty list
-                if key == targetKey
-                then (key, newValue):lst
-                else (key, value):(changeValue targetKey newValue lst) 
+addToIndex :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
+addToIndex targetKey numToAdd [] = error "Key not found in associated list."
+addToIndex targetKey numToAdd ((key,value):lst) = 
+    if key == targetKey
+    then (key,value+numToAdd):lst
+    else (key,value):(addToIndex targetKey numToAdd lst) 
+
+changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
+changeValue targetKey newValue [] = error "Key not found in association list."
+changeValue targetKey newValue ((key,value):lst) =  
+    if key == targetKey
+    then (key, newValue):lst
+    else (key, value):(changeValue targetKey newValue lst) 
         
 -----------------------------------------
 
