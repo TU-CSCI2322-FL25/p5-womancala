@@ -45,25 +45,15 @@ checkWinner (turn, board)
     where
         -- Checks if pits on a side are all empty
         isSideEmpty :: [Index] -> Bool
-        isSideEmpty [] = True
-        isSideEmpty (index:indexes) = 
-            let (Just numMarbles) = lookup index board        --TODO Basically fromJust, should change in error handling
-            in if numMarbles > 0 then False else isSideEmpty indexes
+        isSideEmpty side = null [pieces | (index, pieces) <- board, index `elem` side, pieces > 0]
 
-        -- lookUp value to return an Int
-        lookupValue :: Index -> Int
-        lookupValue i = case lookup i board of
-                            Just v  -> v
-                            Nothing -> 0
-
-        -- Total of marbles in each players Store
-        p1Store = lookupValue storeOne 
-        p2Store = lookupValue storeTwo
+        -- Total of marbles in each players Store 
+        p1Store = fromMaybe 0 (lookup storeOne board)
+        p2Store = fromMaybe 0 (lookup storeTwo board)
 
         -- Total of each players side pits
         p1SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` sideOne]
-        --p1SideTotal = sum [lookupValue i | i <- sideOne]
-        p2SideTotal = sum [lookupValue i | i <- sideTwo] --TODO repeat sidetotal for p1 on p2
+        p2SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` sideTwo]
 
         -- If one side is empty, the other player gets all marbles on their side added to their store
         p1Total = if isSideEmpty sideTwo then p1Store + p1SideTotal else p1Store
@@ -191,5 +181,3 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
                   aux string num = string++(aux string (num-1))
 
 ----------------------------------------
-
-    
