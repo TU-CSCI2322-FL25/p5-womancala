@@ -1,3 +1,4 @@
+import Data.Maybe
 --Main file for the Womancala game
 
 ------------- Story One ---------------
@@ -142,13 +143,13 @@ isValidMove game@(p,board) move = move `elem` (validMoves game)
 -- |    |    |    |    |    |    |    |    |
 -- -----------------------------------------
 
-prettyPrint :: Game -> String --TODO Could use unline
+prettyPrint :: Game -> String
 prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
-                            printTopLine ++"\n"++
+                            (printLine "\x2554" '\x2550' "\x2564" 7 "\x2557")++"\n"++
                             "\x2551   "++(prettyPrintSide board (reverse sideTwo))++"\n"++
-                            (prettyPrintMiddle board)++"\n"++
+                            prettyPrintMiddle board++"\n"++
                             "\x2551   "++(prettyPrintSide board sideOne)++"\n"++
-                            printBottomLine ++ "\n"
+                            (printLine "\x255A" '\x2550' "\x2567" 7 "\x255D") ++ "\n"
   where --
         prettyPrintSide :: Board -> [Index]-> String --Will print a side minus the first "|"
         prettyPrintSide board [] = " \x2502    \x2551"
@@ -157,26 +158,19 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
         prettyPrintMiddle :: Board -> String
         prettyPrintMiddle board = "\x2551 " ++
                                   (spacedLookup storeTwo board) ++
-                                  printMiddleLine++
+                                  (printLine " \x251C" '\x2500' "\x253C" 5 "\x2524 ")++
                                   (spacedLookup storeOne board) ++
                                   " \x2551"
         --
         spacedLookup :: Int -> Board -> String
         spacedLookup key list = if result>9 then show result else " "++(show result)
-            where (Just result) = lookup key list     --TODO Unsafe pattern matching
+            where result = case lookup key list of
+                                Just value -> value
+                                Nothing    -> error "There's a pit missing from the board?"
         --
-        printTopLine :: String   --TODO could be simplier w/ concat & replicate
-        printTopLine = "\x2554"++(take 4 (repeat '\x2550'))++(aux ("\x2564"++(take 4 (repeat '\x2550'))) 7)++"\x2557"
-            where aux string 1 = string
-                  aux string num = string++(aux string (num-1))
-        --
-        printBottomLine :: String
-        printBottomLine = "\x255A"++(take 4 (repeat '\x2550'))++(aux ("\x2567"++(take 4 (repeat '\x2550'))) 7)++"\x255D"
-            where aux string 1 = string
-                  aux string num = string++(aux string (num-1))
-        --
-        printMiddleLine :: String
-        printMiddleLine = " \x251C"++(take 4 (repeat '\x2500'))++(aux ("\x253C"++(take 4 (repeat '\x2500'))) 5)++"\x2524 "
+        printLine :: String -> Char -> String -> Int ->String -> String
+        printLine leftCorner middleLines middleTs repeatLength rightCorner =
+            leftCorner++(take 4 (repeat middleLines))++(aux (middleTs++(take 4 (repeat middleLines))) repeatLength)++rightCorner
             where aux string 1 = string
                   aux string num = string++(aux string (num-1))
 
