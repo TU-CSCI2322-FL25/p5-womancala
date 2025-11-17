@@ -212,7 +212,7 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
 whoWillWin :: Game -> Winner
 whoWillWin game@(turn, board) = case checkWinner game of 
         (Just winstate) -> winstate
-        Nothing -> bestOutcome [whoWillWin (completeMoveUnsafe game move) | move <- validmoves] 
+        Nothing         -> bestOutcome [whoWillWin (completeMoveUnsafe game move) | move <- validmoves] 
     where   validmoves = validMoves game
             bestOutcome :: [Winner] -> Winner
             bestOutcome winlist
@@ -224,7 +224,25 @@ whoWillWin game@(turn, board) = case checkWinner game of
 
 ------------- Story Ten ----------------
 
-{-bestMove :: Game -> Maybe Move
-bestMove game = case checkWinner game of
+bestMove :: Game -> Maybe Move
+bestMove game@(turn,board) = case checkWinner game of
     (Just winner) -> Nothing
-    Nothing ->  -}
+    Nothing       -> case findSameWinner moveTuples of
+            (Just move) -> (Just move)
+            Nothing     -> case findTie moveTuples of
+                            (Just move) -> (Just move)
+                            Nothing     -> case findOppositeWinner moveTuples of
+                                            (Just move) -> (Just move)
+                                            Nothing     -> Nothing
+        where moveTuples = [(whoWillWin (completeMoveUnsafe game move), move) | move <- (validMoves game)]
+
+    where 
+        findSameWinner :: [(Winner, Move)] -> Maybe Move
+        findSameWinner [] = Nothing
+        findSameWinner ((winner, move):tups) = if winner == (Win turn) then (Just move) else findSameWinner tups
+        findTie :: [(Winner, Move)] -> Maybe Move
+        findTie [] = Nothing
+        findTie ((winner, move):tups) = if winner == Tie then (Just move) else findSameWinner tups
+        findOppositeWinner :: [(Winner, Move)] -> Maybe Move
+        findOppositeWinner [] = Nothing
+        findOppositeWinner ((winner, move):tups) = if winner == (Win (opponent turn)) then (Just move) else findSameWinner tups
