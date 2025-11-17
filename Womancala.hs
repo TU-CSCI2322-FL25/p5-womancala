@@ -1,4 +1,5 @@
-import Data.Maybe
+import Control.Applicative ((<|>))
+
 --Main file for the Womancala game
 
 ------------- Story One ---------------
@@ -227,22 +228,14 @@ whoWillWin game@(turn, board) = case checkWinner game of
 bestMove :: Game -> Maybe Move
 bestMove game@(turn,board) = case checkWinner game of
     (Just winner) -> Nothing
-    Nothing       -> case findSameWinner moveTuples of
-            (Just move) -> (Just move)
-            Nothing     -> case findTie moveTuples of
-                            (Just move) -> (Just move)
-                            Nothing     -> case findOppositeWinner moveTuples of
-                                            (Just move) -> (Just move)
-                                            Nothing     -> Nothing
-        where moveTuples = [(whoWillWin (completeMoveUnsafe game move), move) | move <- (validMoves game)]
+    Nothing       -> findWinState (Win turn) moveTuples
+                 <|> findWinState Tie moveTuples
+                 <|> findWinState (Win (opponent turn)) moveTuples
 
-    where 
-        findSameWinner :: [(Winner, Move)] -> Maybe Move
-        findSameWinner [] = Nothing
-        findSameWinner ((winner, move):tups) = if winner == (Win turn) then (Just move) else findSameWinner tups
-        findTie :: [(Winner, Move)] -> Maybe Move
-        findTie [] = Nothing
-        findTie ((winner, move):tups) = if winner == Tie then (Just move) else findSameWinner tups
-        findOppositeWinner :: [(Winner, Move)] -> Maybe Move
-        findOppositeWinner [] = Nothing
-        findOppositeWinner ((winner, move):tups) = if winner == (Win (opponent turn)) then (Just move) else findSameWinner tups
+    where moveTuples = [(whoWillWin (completeMoveUnsafe game move), move) | move <- (validMoves game)]
+          
+          findWinState :: Winner -> [(Winner, Move)] -> Maybe Move
+          findWinState winstate [] = Nothing
+          findWinState winstate ((winner, move):tups) = if winner == winstate then (Just move) else findWinState winstate tups
+
+----------------------------------------
