@@ -213,9 +213,8 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
 whoWillWin :: Game -> Winner
 whoWillWin game@(turn, board) = case checkWinner game of 
         (Just winstate) -> winstate
-        Nothing         -> bestOutcome [whoWillWin (completeMoveUnsafe game move) | move <- validmoves] 
-    where   validmoves = validMoves game
-            bestOutcome :: [Winner] -> Winner
+        Nothing         -> bestOutcome [whoWillWin (completeMoveUnsafe game move) | move <- validMoves game] 
+    where   bestOutcome :: [Winner] -> Winner
             bestOutcome winlist
                 | (Win turn) `elem` winlist = (Win turn)
                 | Tie `elem` winlist = Tie
@@ -228,14 +227,10 @@ whoWillWin game@(turn, board) = case checkWinner game of
 bestMove :: Game -> Maybe Move
 bestMove game@(turn,board) = case checkWinner game of
     (Just winner) -> Nothing
-    Nothing       -> findWinState (Win turn) moveTuples
-                 <|> findWinState Tie moveTuples
-                 <|> findWinState (Win (opponent turn)) moveTuples
+    Nothing       -> lookup (Win turn) moveTuples
+                 <|> lookup Tie moveTuples
+                 <|> (Just $ snd $ head moveTuples)
 
     where moveTuples = [(whoWillWin (completeMoveUnsafe game move), move) | move <- (validMoves game)]
-          
-          findWinState :: Winner -> [(Winner, Move)] -> Maybe Move
-          findWinState winstate [] = Nothing
-          findWinState winstate ((winner, move):tups) = if winner == winstate then (Just move) else findWinState winstate tups
 
 ----------------------------------------
