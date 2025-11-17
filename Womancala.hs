@@ -206,3 +206,25 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
                   aux string num = string++(aux string (num-1))
 
 ----------------------------------------
+
+------------- Story Nine ---------------
+
+whoWillWin :: Game -> Winner
+whoWillWin game@(turn, board) = case checkWinner game of 
+        (Just winstate) -> winstate
+        Nothing -> bestOutcome [whoWillWin (completeMoveUnsafe game move) | move <- validmoves] 
+    where   validmoves = validMoves game
+            bestOutcome :: [Winner] -> Winner
+            bestOutcome winlist
+                | (Win turn) `elem` winlist = (Win turn)
+                | Tie `elem` winlist = Tie
+                | otherwise = Win (opponent turn)
+
+----------------------------------------
+
+------------- Story Ten ----------------
+
+{-bestMove :: Game -> Maybe Move
+bestMove game = case checkWinner game of
+    (Just winner) -> Nothing
+    Nothing ->  -}
