@@ -1,4 +1,7 @@
 import Control.Applicative ((<|>))
+import System.IO.Unsafe (unsafePerformIO)
+import Text.Read (readMaybe)
+import Data.List.Split (splitOn)
 
 --Main file for the Womancala game
 
@@ -232,5 +235,46 @@ bestMove game@(turn,board) = case checkWinner game of
                  <|> (Just $ snd $ head moveTuples)
 
     where moveTuples = [(whoWillWin (completeMoveUnsafe game move), move) | move <- (validMoves game)]
+
+----------------------------------------
+
+----------- Story Twelve ---------------
+
+readGame :: String -> Game
+readGame str = (turn, pits)
+      where (turnString:pitStrings) = lines str
+            Just turn = stringToPlayer turnString
+            pits = makePits pitStrings
+            --
+            makePits :: [String] -> [Pit]
+            makePits [] = []
+            makePits (str:strs) =
+                let stringNums = splitOn " " str
+                    readIndex = readMaybe (head stringNums)
+                    Just index = if readIndex==Nothing then error "Incorrect index in board" else readIndex
+                    readNumMarbles = readMaybe (last stringNums)
+                    Just numMarbles = if readNumMarbles==Nothing then error "Incorrect marbles in board" else readNumMarbles 
+                in ((index,numMarbles):(makePits strs))
+            --
+            stringToPlayer :: String -> Maybe Player
+            stringToPlayer str = case str of 
+                                "P1" -> Just P1
+                                "P2" -> Just P2
+                                otherwise -> Nothing
+
+
+
+unsafeReadFileToString :: String -> String --Just for testing
+unsafeReadFileToString filePath = unsafePerformIO (readFile filePath)
+
+----------------------------------------
+
+----------- Story Thirteen -------------
+
+showGame :: Game -> String
+showGame game@(turn,pits) = unlines ((show turn):aux pits)
+    where aux :: [Pit] -> [String]
+          aux [] = []
+          aux ((index,numMarbles):ps) = (((show index)++" "++(show numMarbles)):aux ps)
 
 ----------------------------------------
