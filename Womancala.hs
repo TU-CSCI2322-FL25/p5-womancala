@@ -1,7 +1,10 @@
+
 import Control.Applicative ((<|>))
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Read (readMaybe)
 import Data.List.Split (splitOn)
+import Data.Maybe (fromMaybe)
+import System.Environment (getArgs)
 
 --Main file for the Womancala game
 
@@ -123,7 +126,9 @@ completeMoveUnsafe game@(turn, board) move
                       newPit =  (pitIndex, oldMarbles + (numMarbles `div` 13) + distAdd)
                       isLandingPit = dist == (numMarbles `mod` 13)
 
-lookUpSafe :: (Eq a, Show  a, Num b) => a -> [(a,b)] -> b
+--Need to handle maybes for all the following instead of erroring out
+
+lookUpSafe :: (Eq a, Show  a, Num b) => a -> [(a,b)] -> b 
 lookUpSafe key alist = case lookup key alist of
     Just value -> value
     Nothing    -> error $ (show key) ++ " is not a valid key." 
@@ -213,8 +218,8 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
 
 ------------- Story Nine ---------------
 
-whoWillWin :: Game -> Winner
-whoWillWin game@(turn, board) = case checkWinner game of 
+whoWillWin :: Game -> Winner -- Doesn't need to consider no moves in validmoves because that is caught in checkwinner 
+whoWillWin game@(turn, board) = case checkWinner game of -- I wonder if we can optimize this by checking if one player has too many marbles to catch up?
         (Just winstate) -> winstate
         Nothing         -> bestOutcome [whoWillWin (completeMoveUnsafe game move) | move <- validMoves game] 
     where   bestOutcome :: [Winner] -> Winner
@@ -227,7 +232,7 @@ whoWillWin game@(turn, board) = case checkWinner game of
 
 ------------- Story Ten ----------------
 
-bestMove :: Game -> Maybe Move
+bestMove :: Game -> Maybe Move -- Doesn't need to consider no moves in validmoves because that is caught in checkwinner 
 bestMove game@(turn,board) = case checkWinner game of
     (Just winner) -> Nothing
     Nothing       -> lookup (Win turn) moveTuples
@@ -276,5 +281,35 @@ showGame game@(turn,pits) = unlines ((show turn):aux pits)
     where aux :: [Pit] -> [String]
           aux [] = []
           aux ((index,numMarbles):ps) = (((show index)++" "++(show numMarbles)):aux ps)
+
+----------------------------------------
+
+----------- Story Fourteen -------------
+
+writeGame :: Game -> FilePath -> IO ()
+writeGame game filepath = writeFile filepath $ showGame game
+
+loadGame :: FilePath -> IO Game
+loadGame filepath = 
+    do  game <- readFile filepath
+        return $ readGame game 
+
+putBestMove :: Game -> IO ()
+putBestMove game = 
+        case bestMove game of 
+            Just move -> do putStr $ "Best Move: " ++ show move ++ "\n" 
+                            let newGame = completeMoveUnsafe game move
+                            case checkWinner newGame of 
+                                Just (Win player) -> putStr ("Game over, winner is " ++ show player ++ "!")
+                                Just (Tie)        -> putStr "Game over, tie!"
+                                Nothing -> putStr $ prettyPrint $ newGame 
+            Nothing   -> do putStr $ "Game is already complete.\n" 
+                            putStr $ prettyPrint game
+
+main :: IO ()
+main = do
+    args <- getArgs
+    game <- loadGame $ head args
+    putBestMove game
 
 ----------------------------------------
