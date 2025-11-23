@@ -28,12 +28,6 @@ pits :: Player -> [Index]
 pits P1 = [1..6]
 pits P2 = [8..13]
 
-initialBoard :: Board
-initialBoard = [(0,0),(1,4),(2,4),(3,4),(4,4),(5,4),(6,4),(7,0),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4)]
-
-initialState :: Game
-initialState = (P1,initialBoard)
-
 ---------------------------------------
 
 ------------- Story Two ----------------
@@ -246,7 +240,9 @@ bestMove game@(turn,board) = case checkWinner game of
 readGame :: String -> Game
 readGame str = (turn, pits)
       where (turnString:pitStrings) = lines str
-            Just turn = stringToPlayer turnString
+            turn = case (stringToPlayer turnString) of 
+                    Just value -> value
+                    Nothing -> error "readGame couldn't find the turn"
             pits = makePits pitStrings
             --
             makePits :: [String] -> [Pit]
@@ -263,7 +259,7 @@ readGame str = (turn, pits)
             stringToPlayer str = case str of 
                                 "P1" -> Just P1
                                 "P2" -> Just P2
-                                otherwise -> Nothing
+                                otherwise -> error ("readGame: Turn isn't in correct format - " ++ str)
 
 
 
