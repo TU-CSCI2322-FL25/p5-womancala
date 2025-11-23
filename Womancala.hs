@@ -118,7 +118,7 @@ completeMoveUnsafe game@(turn, board) move
 
             updatePit :: Turn -> Index -> Int -> Pit -> (Bool, Pit) --Turn, starting index, nummarbles, base pit, new pit, returns the newpit and if its landing
             updatePit turn startIndex numMarbles oldPit@(pitIndex, oldMarbles) 
-                | startIndex == pitIndex            = (False, (startIndex, numMarbles `div` 13))
+                | startIndex == pitIndex            = (isLandingPit, (startIndex, numMarbles `div` 13))
                 | pitIndex == store (opponent turn) = (isLandingPit, oldPit) 
                 | otherwise                         = (isLandingPit, newPit)
                 where dist = indexDistance startIndex pitIndex
