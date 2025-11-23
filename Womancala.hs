@@ -1,3 +1,4 @@
+module Womancala where
 
 import Control.Applicative ((<|>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -48,6 +49,7 @@ initialState = (P1,initialBoard)
 -- I changed it to return Maybe Winner because if no side is empty there is no winner yet, so I return Nothing.  
 -- Can also return NoWinner in this case, and reflect Winner above to be  Winner = Win Player | Tie | NoWinner so 
 -- it can return a Winner instead of a Maybe Winner
+-- Should only be run on a correct game board, will error out if game board is incorrect
 checkWinner :: Game -> Maybe Winner
 checkWinner (turn, board) 
     -- If one side is empty, game ends. Winner is determined by store total counts
@@ -74,13 +76,11 @@ checkWinner (turn, board)
         p1Total = if isSideEmpty (pits P2) then p1Store + p1SideTotal else p1Store
         p2Total = if isSideEmpty (pits P1) then p2Store + p2SideTotal else p2Store
 
-
 -----------------------------------------
 
 ------------- Story Three ---------------
--- Completes the move without any error handling (yet)
--- If it doesn't work right let me (Sydney) know
--- This function does not check if the game is over after a move or if a move is legal
+-- This function does not check if the game is over after a move or if a move is legal.
+-- Only ever pass in a correct board, it will error if the board is invalid.
 
 completeMove :: Game -> Move -> Maybe Game
 completeMove game move = if isValidMove game move then Just (completeMoveUnsafe game move) else Nothing
@@ -95,7 +95,7 @@ completeMoveUnsafe game@(turn, board) move
                 boardClearOpposite = changeValue opposite 0 distributedBoard
                 boardClearSame = changeValue landingIndex 0 boardClearOpposite
                 finalBoard = addToIndex (store turn) (oppositeMarbles+1) boardClearSame
-            in (opponent turn, finalBoard) 
+            in if oppositeMarbles > 0 then (opponent turn, finalBoard) else (opponent turn, distributedBoard) 
         | otherwise = (opponent turn, distributedBoard)
     where   numMarbles = lookUpSafe move board
             distribute = distributeMarbles game move numMarbles
@@ -125,8 +125,19 @@ completeMoveUnsafe game@(turn, board) move
                       distAdd = if dist <= (numMarbles `mod` 13) then 1 else 0
                       newPit =  (pitIndex, oldMarbles + (numMarbles `div` 13) + distAdd)
                       isLandingPit = dist == (numMarbles `mod` 13)
+            addToIndex :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
+            addToIndex targetKey numToAdd [] = error "Key not found in associated list."
+            addToIndex targetKey numToAdd ((key,value):lst) = 
+                if key == targetKey
+                then (key,value+numToAdd):lst
+                else (key,value):(addToIndex targetKey numToAdd lst) 
 
---Need to handle maybes for all the following instead of erroring out
+            changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
+            changeValue targetKey newValue [] = error "Key not found in association list."
+            changeValue targetKey newValue ((key,value):lst) =  
+                if key == targetKey
+                then (key, newValue):lst
+                else (key, value):(changeValue targetKey newValue lst)           
 
 lookUpSafe :: (Eq a, Show  a, Num b) => a -> [(a,b)] -> b 
 lookUpSafe key alist = case lookup key alist of
@@ -137,25 +148,12 @@ opponent :: Player -> Player
 opponent P1 = P2
 opponent P2 = P1
 
-addToIndex :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
-addToIndex targetKey numToAdd [] = error "Key not found in associated list."
-addToIndex targetKey numToAdd ((key,value):lst) = 
-    if key == targetKey
-    then (key,value+numToAdd):lst
-    else (key,value):(addToIndex targetKey numToAdd lst) 
-
-changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
-changeValue targetKey newValue [] = error "Key not found in association list."
-changeValue targetKey newValue ((key,value):lst) =  
-    if key == targetKey
-    then (key, newValue):lst
-    else (key, value):(changeValue targetKey newValue lst) 
-        
 -----------------------------------------
 
 ------------- Story Four ---------------
 --Creates the list of legal moves from a game state
 --by checking if the pit is on the current player's side and not empty.
+-- Only ever pass in a correct board, will not return intended results if incorrect board.
 validMoves :: Game -> [Move]
 validMoves (p, board) = 
     [index | pit@(index,marbles) <- board, validPit pit]
@@ -300,9 +298,9 @@ putBestMove game =
             Just move -> do putStr $ "Best Move: " ++ show move ++ "\n" 
                             let newGame = completeMoveUnsafe game move
                             case checkWinner newGame of 
-                                Just (Win player) -> putStr ("Game over, winner is " ++ show player ++ "!")
-                                Just (Tie)        -> putStr "Game over, tie!"
-                                Nothing -> putStr $ prettyPrint $ newGame 
+                                Just (Win player) -> putStr ("Game over, winner is " ++ show player ++ "!\n")
+                                Just (Tie)        -> putStr "Game over, tie!\n"
+                                Nothing           -> putStr $ prettyPrint $ newGame 
             Nothing   -> do putStr $ "Game is already complete.\n" 
                             putStr $ prettyPrint game
 
