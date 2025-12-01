@@ -2,19 +2,21 @@ module TestCases where
 
 import System.IO
 import Womancala
+import Game
+import Solving
 import System.Environment
 import System.IO
 
 main :: IO ()
 main = 
     do  putStrLn "Testing Story 2 - checkWinner:"
-        game1 <- loadGame "FinalStateP1.txt"
-        game2 <- loadGame "FinalStateP2.txt"
-        game3 <- loadGame "FinalStateTie.txt"
-        game4 <- loadGame "OneStepP2.txt"
-        game5 <- loadGame "InitialBoard.txt"
-        game6 <- loadGame "ForceP1Win.txt"
-        gameString5 <- readFile "InitialBoard.txt"
+        game1 <- loadGame "TestStates/FinalStateP1.txt"
+        game2 <- loadGame "TestStates/FinalStateP2.txt"
+        game3 <- loadGame "TestStates/FinalStateTie.txt"
+        game4 <- loadGame "TestStates/OneStepP2.txt"
+        game5 <- loadGame "TestStates/InitialBoard.txt"
+        game6 <- loadGame "TestStates/ForceP1Win.txt"
+        gameString5 <- readFile "TestStates/InitialBoard.txt"
         putStrLn ("Final State, P1 wins: "++(show (checkWinner game1 == (Just (Win P1)))))
         putStrLn ("Final State, P2 wins: "++(show (checkWinner game2 == (Just (Win P2)))))
         putStrLn ("Final State, Tie:     "++(show (checkWinner game3 == (Just Tie))))
