@@ -1,23 +1,53 @@
 module Game where
 
+import Data.Maybe (fromMaybe)
 ------------- Story One ---------------
 
 type Index = Int
 type Pit = (Index, Int) --(Index, Num of Marbles)
-type Board = [Pit] -- Will only ever be 14 long
+type Board = ([Pit], Pit, [Pit], Pit) --  P1 pits, P1 Store, P2 pits, P2 Store
 data Player = P1 | P2 deriving (Eq,Show)
 type Turn = Player
 data Winner = Win Player | Tie deriving (Eq,Show)
 type Move = Index
-type Game = (Turn, Board)
+type Game = (Turn, Board) 
 
+--Returns the index of the store for the player input.
 store :: Player -> Index
 store P1 = 7
 store P2 = 0
 
+--Returns the list of indexes of the pits associated with input player.
 pits :: Player -> [Index]
 pits P1 = [1..6]
 pits P2 = [8..13]
+
+--Returns the opposite of the input player.
+opponent :: Player -> Player
+opponent P1 = P2
+opponent P2 = P1
+
+--Takes a key, value, and an association list and changes the value to the given value at the key.
+changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
+changeValue targetKey newValue [] = error "Key not found in association list."
+changeValue targetKey newValue ((key,value):lst) =  
+    if key == targetKey
+    then (key, newValue):lst
+    else (key, value):(changeValue targetKey newValue lst)           
+
+--Takes a key and returns the value at that location in the provided association list, but errors if it sees a nothing.
+lookUpUnsafe :: (Eq a, Show  a, Num b) => a -> [(a,b)] -> b 
+lookUpUnsafe key alist = case lookup key alist of
+    Just value -> value
+    Nothing    -> error $ (show key) ++ " is not a valid key." 
+
+--Takes an index and a board and returns the amount of marbles at the location, errors if unfound.
+boardLookUpUnsafe :: Index -> Board -> Int 
+boardLookUpUnsafe index (p1Pits, (p1SIndex,p1SMarbles), p2Pits, (p2SIndex, p2SMarbles)) 
+    | index == 0           = p2SMarbles
+    | index == 7           = p1SMarbles
+    | index `elem` pits P1 = lookUpUnsafe index p1Pits
+    | otherwise            = lookUpUnsafe index p2Pits
 
 ---------------------------------------
 
@@ -36,7 +66,7 @@ pits P2 = [8..13]
 -- it can return a Winner instead of a Maybe Winner
 -- Should only be run on a correct game board, will error out if game board is incorrect
 checkWinner :: Game -> Maybe Winner
-checkWinner (turn, board) 
+checkWinner (turn, (p1Store, p1Pits, p2Store, p2Pits)) 
     -- If one side is empty, game ends. Winner is determined by store total counts
     | isSideEmpty (pits P1) || isSideEmpty (pits P2) =
         if p1Total > p2Total then Just (Win P1)
@@ -64,74 +94,81 @@ checkWinner (turn, board)
 -----------------------------------------
 
 ------------- Story Three ---------------
--- This function does not check if the game is over after a move or if a move is legal.
--- Only ever pass in a correct board, it will error if the board is invalid.
+--This function takes in a game and a move and returns the game board after the fact, without checking if the game is over.
 
+--Passes to completeMoveUnsafe, but will error if the move placed in is valid
 completeMove :: Game -> Move -> Maybe Game
 completeMove game move = if isValidMove game move then Just (completeMoveUnsafe game move) else Nothing
 
+-- Assumes that the board passed in is in the correct format, as provided by readGame.
+-- Completes a move with the following rules: 
+    -- You can move marbles from any pit on your side that has marbles in it, but not your store.
+    -- Place 1 marble in each pit around the board, placing marbles in your store but not your opponent, until you run out of marbles.
+    -- If you land in your store, it's your turn again.
+    -- If you land in an empty pit on your side, steal all marbles from that pit and the opponents pit directly across.
 completeMoveUnsafe :: Game -> Move -> Game
-completeMoveUnsafe game@(turn, board) move 
-        | landingIndex == 0 && turn == P2 = (P2, distributedBoard)
-        | landingIndex == 7 && turn == P1 = (P1, distributedBoard)
-        | amountAtIndex == 1 && landingIndex `elem` (pits turn) = 
-            let opposite = landingIndex + 2*(7-landingIndex)
-                oppositeMarbles = lookUpUnsafe opposite distributedBoard
-                boardClearOpposite = changeValue opposite 0 distributedBoard
-                boardClearSame = changeValue landingIndex 0 boardClearOpposite
-                finalBoard = addToIndex (store turn) (oppositeMarbles+1) boardClearSame
-            in if oppositeMarbles > 0 then (opponent turn, finalBoard) else (opponent turn, distributedBoard) 
-        | otherwise = (opponent turn, distributedBoard)
-    where   numMarbles = lookUpUnsafe move board
-            distribute = distributeMarbles game move numMarbles
-            distributedBoard = map snd distribute
-            landingIndex = findLandingIndex distribute
-            amountAtIndex = lookUpUnsafe landingIndex distributedBoard 
+completeMoveUnsafe game@(turn, board@(p1Pits, p1Store, p2Pits, p2Store)) move 
+        | landingIndex == 0  = (P2, distributedBoard) -- Will only ever land on those spaces if it is their turn
+        | landingIndex == 7  = (P1, distributedBoard) -- Return the board and make it the player's turn again
+        | amountAtIndex == 1 =  (opponent turn, steal distributedBoard) -- Will only ever be returned if it is on the current turn's side
+        | otherwise = (opponent turn, distributedBoard) -- Otherwise just return the distributed board and change turn 
+    where   numMarbles = boardLookUpUnsafe move board -- Figure out how many marbles are in the space
+            --Distribute the marbles by calculating how many marbles go in each pit based on updatePit
+            distribute@(dP1P, dP1S, dP2P, dP2S) = (map updatePit p1Pits, updatePit p1Store, map updatePit p2Pits, updatePit p2Store)
+            --Convert the board of (Bool,Pit) into a traditional board 
+            distributedBoard = (map snd dP1P, snd dP1S, map snd dP2P, snd dP2S)
+            --Find where it landed, if -1, then it doesn't matter and goes to otherwise
+            (landingIndex, amountAtIndex) = findLandingIndexOnBoard distribute 
+ 
+            --A function to compute the board given a steal is present at the landingIndex
+            steal :: Board -> Board
+            steal (p1Pits, p1Store@(p1StoreIndex, p1StoreMarbles), p2Pits, p2Store@(p2StoreIndex, p2StoreMarbles)) = 
+                let opposite = landingIndex + 2*(7-landingIndex) -- Find the opposite index algorithmically
+                    (playerSide, opponentSide) = if turn == P1 then (p1Pits,p2Pits) else (p2Pits,p1Pits) -- Figure out whos moving
+                    oppositeMarbles = lookUpUnsafe opposite opponentSide -- Figure out how many marbles are in the opposite pit
+                    newOpponentSide = changeValue opposite 0 opponentSide -- Clear the opposite pit
+                    newPlayerSide   = changeValue landingIndex 0 playerSide -- Clear the landing Pit
+                in  if turn == P1 -- rebuild the board using the changed values, adding the marbles to the correct store
+                    then (newPlayerSide, (7,p1StoreMarbles+1+oppositeMarbles), newOpponentSide, p2Store) 
+                    else (newOpponentSide, p1Store, newPlayerSide, (0,p2StoreMarbles+1+oppositeMarbles))
 
-            distributeMarbles :: Game -> Index -> Int -> [(Bool,Pit)] 
-            distributeMarbles (turn, board) startIndex numMarbles = map (updatePit turn startIndex numMarbles) board
+            -- A function to take the output of the updatePit ran on a board and find if the landing index
+            -- is important, and then what it is.
+            -- Will return (-1,-1) on an unimportant value, will return a value if index is 0 7 or on the side
+            findLandingIndexOnBoard :: ([(Bool, Pit)], (Bool, Pit), [(Bool, Pit)], (Bool, Pit)) -> (Index,Int)
+            findLandingIndexOnBoard (p1PitTuples, (isLandingP1Store, p1StorePit), p2PitTuples, (isLandingP2Store, p2StorePit)) 
+                    | isLandingP1Store = p1StorePit
+                    | isLandingP2Store = p2StorePit
+                    -- Check the landing index of whoever's turn it is, if it's not present, doesn't matter, return (-1,-1)
+                    | otherwise = fromMaybe (-1,-1) (findLandingIndexOnList (if turn == P1 then p1PitTuples else p2PitTuples))
+                where 
+                    -- Function to find the landing index within a list, and decide if its important
+                    findLandingIndexOnList :: [(Bool, Pit)] -> Maybe (Index,Int)
+                    findLandingIndexOnList [] = Nothing -- Return Nothing if it isn't found
+                    findLandingIndexOnList ((isLandingIndex, landingPit):xs) = 
+                        if isLandingIndex 
+                        then Just landingPit
+                        else findLandingIndexOnList xs
 
-            findLandingIndex :: [(Bool,Pit)] -> Index
-            findLandingIndex [] = error "No Landing Index Reported"
-            findLandingIndex ((isLandingIndex, (index,marbles)):xs) = if isLandingIndex then index else findLandingIndex xs
-
+            -- Calculates the distance between two indexes on the board using the described rules
             indexDistance :: Index -> Index -> Int
             indexDistance a b 
                 | a <= b     = b - a
                 | turn == P1 = 13+(b-a)
                 | otherwise  = (14-a)+b-(b `div` 7)
 
-            updatePit :: Turn -> Index -> Int -> Pit -> (Bool, Pit) --Turn, starting index, nummarbles, base pit, new pit, returns the newpit and if its landing
-            updatePit turn startIndex numMarbles oldPit@(pitIndex, oldMarbles) 
-                | startIndex == pitIndex            = (isLandingPit, (startIndex, numMarbles `div` 13))
+            -- Use the distance to determine how many marbles should be in each space, and return if that's the landing index
+            updatePit :: Pit -> (Bool, Pit) 
+            updatePit oldPit@(pitIndex, oldMarbles) 
+                | move == pitIndex                  = (isLandingPit, (move, numMarbles `div` 13)) 
                 | pitIndex == store (opponent turn) = (isLandingPit, oldPit) 
                 | otherwise                         = (isLandingPit, newPit)
-                where dist = indexDistance startIndex pitIndex
+                where dist = indexDistance move pitIndex
                       distAdd = if dist <= (numMarbles `mod` 13) then 1 else 0
                       newPit =  (pitIndex, oldMarbles + (numMarbles `div` 13) + distAdd)
                       isLandingPit = dist == (numMarbles `mod` 13)
-            addToIndex :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
-            addToIndex targetKey numToAdd [] = error "Key not found in associated list."
-            addToIndex targetKey numToAdd ((key,value):lst) = 
-                if key == targetKey
-                then (key,value+numToAdd):lst
-                else (key,value):(addToIndex targetKey numToAdd lst) 
 
-            changeValue :: (Eq a, Num b) => a -> b -> [(a,b)] -> [(a,b)]  
-            changeValue targetKey newValue [] = error "Key not found in association list."
-            changeValue targetKey newValue ((key,value):lst) =  
-                if key == targetKey
-                then (key, newValue):lst
-                else (key, value):(changeValue targetKey newValue lst)           
-
-lookUpUnsafe :: (Eq a, Show  a, Num b) => a -> [(a,b)] -> b 
-lookUpUnsafe key alist = case lookup key alist of
-    Just value -> value
-    Nothing    -> error $ (show key) ++ " is not a valid key." 
-
-opponent :: Player -> Player
-opponent P1 = P2
-opponent P2 = P1
+            
 
 -----------------------------------------
 
@@ -140,11 +177,11 @@ opponent P2 = P1
 --by checking if the pit is on the current player's side and not empty.
 -- Only ever pass in a correct board, will not return intended results if incorrect board.
 validMoves :: Game -> [Move]
-validMoves (p, board) = 
-    [index | pit@(index,marbles) <- board, validPit pit]
+validMoves (turn, (p1Pits, p1Store, p2Pits, p2Store)) = 
+    [index | pit@(index,marbles) <- (if turn == P1 then p1Pits else p2Pits), marbles > 0]
     where 
         validPit :: Pit -> Bool
-        validPit (idx, num) = (idx `elem` pits p) && (num > 0)
+        validPit (idx, num) = (idx `elem` pits turn) && (num > 0)
 
 --Extra: Checks if a move is valid given a game (Might be handy for error handling idk)
 isValidMove :: Game -> Move -> Bool          
@@ -152,7 +189,38 @@ isValidMove game@(turn,board) move
     | move == 0 = False
     | move == 7 = False
     | move `notElem` (pits turn) = False
-    | lookUpUnsafe move board == 0 = False
+    | boardLookUpUnsafe move board == 0 = False
     | otherwise = True
 
 ---------------------------------------
+
+prettyPrint :: Game -> String
+prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
+                            (printLine "\x2554" '\x2550' "\x2564" 7 "\x2557")++"\n"++
+                            "\x2551   "++(prettyPrintSide board (reverse (pits P2)))++"\n"++
+                            prettyPrintMiddle board++"\n"++
+                            "\x2551   "++(prettyPrintSide board (pits P1))++"\n"++
+                            (printLine "\x255A" '\x2550' "\x2567" 7 "\x255D") ++ "\n"
+  where --
+        prettyPrintSide :: Board -> [Index]-> String --Will print a side minus the first "|"
+        prettyPrintSide board [] = " \x2502    \x2551"
+        prettyPrintSide board (index:indexes) = " \x2502 "++(spacedLookup index board) ++ prettyPrintSide board indexes
+        --
+        prettyPrintMiddle :: Board -> String
+        prettyPrintMiddle board = "\x2551 " ++
+                                  (spacedLookup (store P2) board) ++
+                                  (printLine " \x251C" '\x2500' "\x253C" 5 "\x2524 ")++
+                                  (spacedLookup (store P1) board) ++
+                                  " \x2551"
+        --
+        spacedLookup :: Int -> Board -> String
+        spacedLookup key list = if result>9 then show result else " "++(show result)
+            where result = lookUpUnsafe key list
+        --
+        printLine :: String -> Char -> String -> Int ->String -> String
+        printLine leftCorner middleLines middleTs repeatLength rightCorner =
+            leftCorner++(take 4 (repeat middleLines))++(aux (middleTs++(take 4 (repeat middleLines))) repeatLength)++rightCorner
+            where aux string 1 = string
+                  aux string num = string++(aux string (num-1))
+
+----------------------------------------
