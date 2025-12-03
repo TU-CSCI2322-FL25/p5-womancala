@@ -21,25 +21,25 @@ import System.Environment (getArgs)
 -- -----------------------------------------
 
 prettyPrint :: Game -> String
-prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
+prettyPrint (turn,board@(sideOne,pitOne,sideTwo,pitTwo)) = "Current turn: "++(show turn)++"\n"++
                             (printLine "\x2554" '\x2550' "\x2564" 7 "\x2557")++"\n"++
-                            "\x2551   "++(prettyPrintSide board (reverse (pits P2)))++"\n"++
-                            prettyPrintMiddle board++"\n"++
-                            "\x2551   "++(prettyPrintSide board (pits P1))++"\n"++
+                            "\x2551   "++(prettyPrintSide sideTwo (reverse (pits P2)))++"\n"++
+                            prettyPrintMiddle [pitOne,pitTwo] ++"\n"++
+                            "\x2551   "++(prettyPrintSide sideOne (pits P1))++"\n"++
                             (printLine "\x255A" '\x2550' "\x2567" 7 "\x255D") ++ "\n"
   where --
-        prettyPrintSide :: Board -> [Index]-> String --Will print a side minus the first "|"
+        prettyPrintSide :: [Pit] -> [Index]-> String --Will print a side minus the first "|"
         prettyPrintSide board [] = " \x2502    \x2551"
         prettyPrintSide board (index:indexes) = " \x2502 "++(spacedLookup index board) ++ prettyPrintSide board indexes
         --
-        prettyPrintMiddle :: Board -> String
+        prettyPrintMiddle :: [Pit] -> String
         prettyPrintMiddle board = "\x2551 " ++
                                   (spacedLookup (store P2) board) ++
                                   (printLine " \x251C" '\x2500' "\x253C" 5 "\x2524 ")++
                                   (spacedLookup (store P1) board) ++
                                   " \x2551"
         --
-        spacedLookup :: Int -> Board -> String
+        spacedLookup :: Int -> [Pit] -> String
         spacedLookup key list = if result>9 then show result else " "++(show result)
             where result = lookUpUnsafe key list
         --
@@ -54,22 +54,32 @@ prettyPrint (turn,board) = "Current turn: "++(show turn)++"\n"++
 ----------- Story Twelve ---------------
 
 readGame :: String -> Game
-readGame str = (turn, pits)
+readGame str = (turn, board)
       where (turnString:pitStrings) = lines str
             turn = case (stringToPlayer turnString) of 
                     Just value -> value
                     Nothing -> error "readGame couldn't find the turn"
             pits = makePits pitStrings
+            board = makeBoard pits
             --
             makePits :: [String] -> [Pit]
             makePits [] = []
             makePits (str:strs) =
-                let stringNums = splitOn " " str
-                    readIndex = readMaybe (head stringNums)
-                    Just index = if readIndex==Nothing then error "Incorrect index in board" else readIndex
-                    readNumMarbles = readMaybe (last stringNums)
+                let stringNums      = splitOn " " str
+                    readIndex       = readMaybe (head stringNums)
+                    Just index      = if readIndex==Nothing then error "Incorrect index in board" else readIndex
+                    readNumMarbles  = readMaybe (last stringNums)
                     Just numMarbles = if readNumMarbles==Nothing then error "Incorrect marbles in board" else readNumMarbles 
                 in ((index,numMarbles):(makePits strs))
+            --
+            makeBoard :: [Pit] -> Board
+            makeBoard sourcePits = ((getPits sourcePits [1..6]), (head (getPits sourcePits [7])),(getPits sourcePits [8..13]), (head (getPits sourcePits [0])))
+                where getPits :: [Pit] -> [Index] -> [Pit]
+                      getPits _ [] = []
+                      getPits [] _ = []
+                      getPits (pit@(id,nm):ps) indexes = if id `elem` indexes
+                                                       then (pit:(getPits ps indexes))
+                                                       else (getPits ps indexes)
             --
             stringToPlayer :: String -> Maybe Player
             stringToPlayer str = case str of 
@@ -86,7 +96,7 @@ readGame str = (turn, pits)
 ----------- Story Thirteen -------------
 
 showGame :: Game -> String
-showGame game@(turn,pits) = unlines ((show turn):aux pits)
+showGame game@(turn,board@(pitsOne,storeOne,pitsTwo,storeTwo)) = unlines ((show turn):((aux pitsOne)++(aux [storeOne])++(aux pitsTwo)++(aux [storeTwo])))
     where aux :: [Pit] -> [String]
           aux [] = []
           aux ((index,numMarbles):ps) = (((show index)++" "++(show numMarbles)):aux ps)

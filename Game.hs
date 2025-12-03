@@ -201,3 +201,42 @@ isValidMove game@(turn,board) move
     | otherwise = True
 
 ---------------------------------------
+
+------------Story Seventeen------------
+
+rateGame :: Game -> Int
+rateGame game@(turn,board@(sideOne,storeOne,sideTwo,storeTwo)) =
+    if winner == Nothing
+        then sum [turnPoint,storeOnePoints,storeTwoPoints,sideOnePoints,sideTwoPoints]
+        else case winner of
+             Just (Win P1)  ->  400
+             Just (Win P2)  -> -400
+             Just Tie ->  0
+    where turnPoint      = if turn == P1 then 8 else -8
+          storeOnePoints = 8 * (snd storeOne)
+          storeTwoPoints = -8 * (snd storeTwo)
+          sideOnePoints  = pointsSideTwo sideOne 
+          sideTwoPoints  = -1 * pointsSideTwo sideTwo
+          winner         = checkWinner game
+
+pointsSideTwo :: [Pit] -> Int
+pointsSideTwo [] = 0
+pointsSideTwo ((index,marbles):pits) = 
+    if marbles==0
+        then 8 + (pointsSideTwo pits)
+        else weightedMarbles + (pointsSideTwo pits)
+    where weightedMarbles = ((((index `mod` 7)-1) `div` 2)+1) * marbles
+            -- ^ Yay algebra to get the modifier from the index
+{-
+-- (Turn,([Pit],Pit,[Pit],Pit))
+pointsSide :: Board -> [Index] -> Int
+pointsSide board [] = 0
+pointsSide board (index:idxs)  
+    | index `elem` [1,2,8,9]   = if numMarbles==0 then (8 + pointsSide board idxs) else (3 * numMarbles + pointsSide board idxs)
+    | index `elem` [3,4,10,11] = if numMarbles==0 then (8 + pointsSide board idxs) else (2 * numMarbles + pointsSide board idxs)
+    | index `elem` [5,6,12,13] = if numMarbles==0 then (8 + pointsSide board idxs) else (1 * numMarbles + pointsSide board idxs)
+    | otherwise                = error "pointsSide: The given index is not in a playable side."
+    where numMarbles = (lookUpUnsafe index board)
+-}
+
+---------------------------------------
