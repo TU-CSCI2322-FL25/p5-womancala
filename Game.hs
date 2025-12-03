@@ -66,7 +66,7 @@ boardLookUpUnsafe index (p1Pits, (p1SIndex,p1SMarbles), p2Pits, (p2SIndex, p2SMa
 -- it can return a Winner instead of a Maybe Winner
 -- Should only be run on a correct game board, will error out if game board is incorrect
 checkWinner :: Game -> Maybe Winner
-checkWinner (turn, (p1Store, p1Pits, p2Store, p2Pits)) 
+checkWinner (turn, board@(p1Pits, p1Store@(p1SIndex,p1SMarbles), p2Pits, p2Store@(p2SIndex,p2SMarbles)))
     -- If one side is empty, game ends. Winner is determined by store total counts
     | isSideEmpty (pits P1) || isSideEmpty (pits P2) =
         if p1Total > p2Total then Just (Win P1)
@@ -75,21 +75,28 @@ checkWinner (turn, (p1Store, p1Pits, p2Store, p2Pits))
     -- Otherwise no sides are empty - no winner yet
     | otherwise = Nothing
     where
+        boardList ::  [(Index, Int)]
+        boardList = p1Pits ++ [p1Store] ++ p2Pits ++ [p2Store]
+
         -- Checks if pits on a side are all empty
         isSideEmpty :: [Index] -> Bool
-        isSideEmpty side = null [pieces | (index, pieces) <- board, index `elem` side, pieces > 0]
+        isSideEmpty side = null [pieces | (index, pieces) <- boardList, index `elem` side, pieces > 0]
 
         -- Total of marbles in each players Store 
-        p1Store = lookUpUnsafe (store P1) board
-        p2Store = lookUpUnsafe (store P2) board
+        p1StoreMarbles = p1SMarbles
+        p2StoreMarbles = p2SMarbles
+        --p1Store = lookUpUnsafe (store P1) board
+        --p2Store = lookUpUnsafe (store P2) board
 
         -- Total of each players side pits
-        p1SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` (pits P1)]
-        p2SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` (pits P2)]
+        --p1SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` (pits P1)]
+        --p2SideTotal = sum [ numMarbles | (index,numMarbles) <- board, index `elem` (pits P2)]
+        p1SideTotal = sum [ lookUpUnsafe i boardList | i <- pits P1]
+        p2SideTotal = sum [ lookUpUnsafe i boardList | i <- pits P2]
 
         -- If one side is empty, the other player gets all marbles on their side added to their store
-        p1Total = if isSideEmpty (pits P2) then p1Store + p1SideTotal else p1Store
-        p2Total = if isSideEmpty (pits P1) then p2Store + p2SideTotal else p2Store
+        p1Total = if isSideEmpty (pits P2) then p1StoreMarbles + p1SideTotal else p1StoreMarbles
+        p2Total = if isSideEmpty (pits P1) then p2StoreMarbles + p2SideTotal else p2StoreMarbles
 
 -----------------------------------------
 
