@@ -7,6 +7,12 @@ import Text.Read (readMaybe)
 import Data.List.Split (splitOn)
 import System.Environment (getArgs)
 
+import System.Console.GetOpt
+import System.Exit (exitFailure, exitSuccess)
+import System.IO (hFlush, stdout)
+import Data.Maybe (fromMaybe)
+import Control.Applicative ((<|>))
+
 --Main file for the Womancala game
 
 ------------- Story Five ---------------
@@ -131,4 +137,89 @@ main = do
     game <- loadGame $ head args
     putBestMove game
 
+----------------------------------------
+
+----------- Story Twenty Two -----------
+-- Support the  -w, --winner flag. When passed, the program should print out the best move, 
+-- using the exhaustive search from the Story 9/Story 10 in the second sprint with no cut-off depth.
+winnerFlag :: IO ()
+winnerFlag = do
+    args <- getArgs
+    let filepath = head [arg | arg <- args, arg /= "-w" && arg /= "--winner"]
+    game <- loadGame filepath
+    case bestMove game of 
+        Just move -> putStrLn $ "Best Move: " ++ show move
+        Nothing   -> putStrLn "Game is already complete."
+----------------------------------------
+
+----------- Story Twenty Three ---------
+-- Support the -d <num>, --depth <num> flag, allowing the user to specify <num> as a cutoff depth, 
+-- instead of your default. This has no effect when combined with the -w flag. You may print a warning if both are provided.
+depthFlag :: IO ()
+depthFlag = do
+    args <- getArgs
+    let filepath = head [arg | arg <- args, arg /= "-d" && arg /= "--depth" && not (all (`elem` ['0'..'9']) arg)]
+    let depthStr = head [arg | arg <- args, all (`elem` ['0'..'9']) arg]
+    let depth = case readMaybe depthStr of 
+                    Just num -> num
+                    Nothing  -> error "Depth flag provided without a valid number."
+    game <- loadGame filepath
+    putStrLn $ "Using depth: " ++ show depth
+    -- Should we call a depth-limited best move function instead of regular bestMove?
+    -- ex: putBestMoveWithDepth game depth ??
+    putStrLn "Depth-limited bestMove functionality not yet decided..."
+----------------------------------------
+
+----------- Story Twenty Four ----------
+-- Support the -h, --help flag, which should print out a good help message and quit the program.
+helpFlag :: IO ()
+helpFlag = do
+    putStrLn "Womancala Help:"
+    putStrLn "How to use: womancala [options] <gamefile>"
+    putStrLn "Options:"
+    putStrLn "  -w, --winner        Print the best move."
+    putStrLn "  -d <num>, --depth <num>  Specify cutoff depth for best move calculation."
+    putStrLn "  -h, --help          Show this help message."
+----------------------------------------
+
+----------- Story Twenty Five ----------
+-- Support the -m <move>, --move <move> flag, which should <move> and print out the resulting board to stdout.
+-- You should print in the input format. If the -v flag is provided, you may pretty-print instead.
+-- The move should be 1-indexed. If a move requires multiple values, 
+-- the move should be a tuple of numbers separated by a comma with no space. 
+-- You may use letters instead of numbers if you choose, which should be lower-cased and 'a'-indexed.
+moveFlag :: IO ()
+moveFlag = do
+    args <- getArgs
+    let filepath = head [arg | arg <- args, arg /= "-m" && arg /= "--move" && arg /= "-v" && arg /= "--verbose"]
+    let moveStr = head [arg | arg <- args, arg /= filepath, arg /= "-v", arg /= "--verbose", arg /= "-m", arg /= "--move"]
+    let move = case readMaybe moveStr of 
+                    Just num -> num
+                    Nothing  -> error "Move flag provided without a valid number."
+    game <- loadGame filepath
+    let newGame = case completeMove game move of  -- completetMove or completeMoveUnsafe??
+                    Just g -> game
+                    Nothing -> error "Move was invalid."
+    putStrLn $ showGame newGame
+----------------------------------------
+
+----------- Story Twenty Sixth ---------
+-- Support the -v, --verbose flag, 
+-- which should output both the move and a description of how good it is: win, lose, tie, or a rating.
+verboseFlag :: IO ()
+verboseFlag = do
+    args <- getArgs
+    let filepath = head [arg | arg <- args, arg /= "-v" && arg /= "--verbose"]
+    game <- loadGame filepath
+    case bestMove game of 
+        Just move -> do 
+            putStrLn $ "Best Move: " ++ show move
+            let newGame = case completeMove game move of -- could i just do completeMoveUnsafe here?
+                    Just g -> g
+                    Nothing -> error "bestMove chose invalid move."
+            case checkWinner newGame of 
+                Just (Win player) -> putStrLn ("This move results in a win for " ++ show player ++ "!")
+                Just Tie         -> putStrLn "This move results in a tie!"
+                Nothing          -> putStrLn ("This move leads to a rating of " ++ show (rateGame newGame) ++ ".")
+        Nothing   -> putStrLn "Game is already complete."
 ----------------------------------------
