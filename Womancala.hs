@@ -236,7 +236,7 @@ data Flag
 -- Flags recognized by GetOpt
 options :: [OptDescr Flag]
 options =
-    [ Option ['w'] ["winner"] (NoArg Winner) "Print the best move (exhaustive)."
+    [ Option ['w'] ["winner"] (NoArg Winner) "Print the ultimate best move."
     , Option ['v'] ["verbose"] (NoArg Verbose) "Verbose output / pretty print in -m mode."
     , Option ['d'] ["depth"] (ReqArg Depth "NUMBER") "Specify cutoff depth for best move calculation."
     , Option ['m'] ["move"] (ReqArg Move "MOVE") "Make the specified move and print the resulting board."
@@ -309,7 +309,7 @@ dispatchFlags flags game@(turn, _) = do
         Just mvStr ->
             case parseMove mvStr of
                 Nothing -> do
-                    putStrLn "Invalid move format. Use a single number pit index (e.g., 1 or 13)."
+                    putStrLn "Invalid input for move."
                     exitFailure
                 Just mv ->
                     case completeMove game mv of
