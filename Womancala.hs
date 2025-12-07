@@ -131,11 +131,11 @@ putBestMove game =
             Nothing   -> do putStr $ "Game is already complete.\n" 
                             putStr $ prettyPrint game
 
-main :: IO ()
-main = do
-    args <- getArgs
-    game <- loadGame $ head args
-    putBestMove game
+--main :: IO ()
+--main = do
+--    args <- getArgs
+--    game <- loadGame $ head args
+--    putBestMove game
 
 ----------------------------------------
 
@@ -223,3 +223,129 @@ verboseFlag = do
                 Nothing          -> putStrLn ("This move leads to a rating of " ++ show (rateGame newGame) ++ ".")
         Nothing   -> putStrLn "Game is already complete."
 ----------------------------------------
+
+------- Command Line Interface ----------
+
+-- Possible flags for womancala
+data Flag
+    = Winner -- -w, --winner  (story 22)
+    | Verbose -- -v, --verbose  (story 26)
+    | Depth String -- -d <number>, --depth <number>  (story 23)
+    | Move String -- -m <move>, --move <move>   (story 25)
+    | Help -- -h, --help    (story 24)
+    deriving (Eq, Show)
+
+-- List of flags recognized by GetOpt 
+options :: [OptDescr Flag]
+options =
+    [ Option ['w'] ["winner"] (NoArg Winner) "Print the best move."
+    , Option ['v'] ["verbose"] (NoArg Verbose) "Output a move and a description of how good it is."
+    , Option ['d'] ["depth"] (ReqArg Depth "NUMBER") "Specify cutoff depth for best move calculation."
+    , Option ['m'] ["move"] (ReqArg Move "MOVE") "Make the specified move and print the resulting board."
+    , Option ['h'] ["help"] (NoArg Help) "Show help message."
+    ]
+
+-- Displayed when -h / --help is used or when invalid input is given
+helpMessage :: String
+helpMessage = usageInfo "Womancala Help:\n\nUsage: womancala [options] <gamefile>\n\nOptions:" options
+
+-- Reads arguments from command line, parses flags, and returns them along with non-option arguments
+parseFlags :: IO ([Flag], [String])
+parseFlags = do
+    argv <- getArgs
+    let (flags, nonOpts, errs) = getOpt Permute options argv
+    if not (null errs)
+        then do
+            putStrLn (concat errs ++ "\n" ++ helpMessage) 
+            exitFailure
+        else return (flags, nonOpts)
+
+-- Helpers
+firstDepth :: [Flag] -> Maybe String
+firstDepth [] = Nothing
+firstDepth (Depth d : _) = Just d
+firstDepth (_ : fs) = firstDepth fs
+
+firstMoveStr :: [Flag] -> Maybe String
+firstMoveStr [] = Nothing
+firstMoveStr (Move m : _) = Just m
+firstMoveStr (_ : fs) = firstMoveStr fs
+
+hasFlag :: (Flag -> Bool) -> [Flag] -> Bool
+hasFlag _ [] = False
+hasFlag p (f:fs) = p f || hasFlag p fs
+
+-- Executes actions based on the flag provided
+dispatchFlags :: [Flag] -> Game -> IO ()
+dispatchFlags flags game = do
+    -- Story 24 - Help flag
+    -- Prints help and exits immediately
+    if hasFlag (== Help) flags
+        then 
+            putStrLn helpMessage 
+            exitSuccess
+        else return ()
+    
+    -- Story 25 - Move flag
+    -- Apply move and print resulting board
+    case firstMoveStr flags of
+        Just mvStr ->
+            case readMaybe mvStr :: Maybe Int of
+                Nothing -> do
+                    putStrLn "Invalid move format, put a number"
+                    exitFailure
+                Just mv -> do
+                    case completeMove game mv of
+                        Nothing -> do
+                            putStrLn "Move was invalid." 
+                            exitSuccess
+                        Just newGame -> do 
+                            putStrLn (showGame newGame)
+                            exitSuccess
+        Nothing -> return ()
+    
+    -- Story 22 - Winner flag
+    -- Find and print best move
+    if hasFlag (== Winner) flags
+        then case bestMove game of
+            Just mv -> putStrLn ("Best Move: " ++ show mv)
+            Nothing -> putStrLn "Game is already complete."
+        else do
+            -- Story 23 - Depth flag (not implemented)
+            case firstDepth flags of
+                Just ds -> 
+                    case readMaybe ds :: Maybe Int of
+                        Nothing -> putStrLn "-d expects a number argument."
+                        Just d -> putStrLn ("depth:" ++ show d ++ " but not implemented.")
+                Nothing -> return ()
+
+            -- Story 21 - Verbose Flag
+            -- Call bestMove and print details
+            case bestMove game of
+                Nothing -> putStrLn "Game is already complete."
+                Just mv ->
+                    if hasFlag (== Verbose) flags
+                        then do
+                            putStrLn ("Best Move: " ++ show mv)
+                            case completeMove game mv of 
+                                Nothing -> putStrLn "bestMove chose invalid move."
+                                Just newGame ->
+                                    case checkWinner newGame of 
+                                        Just (Win player) -> putStrLn ("This move results in a win for " ++ show player ++ "!")
+                                        Just Tie         -> putStrLn "This move results in a tie!"
+                                        Nothing          -> putStrLn ("This move leads to a rating of " ++ show (rateGame newGame) ++ ".")
+                        else putStrLn ("Best Move: " ++ show mv)
+
+-- Main 
+main :: IO ()
+main = do
+    (flags, nonOpts) <- parseFlags 
+    case nonOpts of
+        [filepath] -> do
+            game <- loadGame filepath
+            dispatchFlags flags game
+        _ -> do
+            putStrLn "Please provide a single game file."
+            putStrLn helpMessage
+            exitFailure
+            
