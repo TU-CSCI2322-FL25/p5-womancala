@@ -117,7 +117,9 @@ completeMoveUnsafe :: Game -> Move -> Game
 completeMoveUnsafe game@(turn, board@(p1Pits, p1Store, p2Pits, p2Store)) move 
         | landingIndex == 0  = (P2, distributedBoard) -- Will only ever land on those spaces if it is their turn
         | landingIndex == 7  = (P1, distributedBoard) -- Return the board and make it the player's turn again
-        | amountAtIndex == 1 =  (opponent turn, steal distributedBoard) -- Will only ever be returned if it is on the current turn's side
+        | amountAtIndex == 1 =  case steal distributedBoard of 
+            (Just outputBoard) -> (opponent turn, outputBoard) -- Will only ever be returned if it is on the current turn's side
+            Nothing            -> (opponent turn, distributedBoard)
         | otherwise = (opponent turn, distributedBoard) -- Otherwise just return the distributed board and change turn 
     where   numMarbles = boardLookUpUnsafe move board -- Figure out how many marbles are in the space
             --Distribute the marbles by calculating how many marbles go in each pit based on updatePit
@@ -126,18 +128,20 @@ completeMoveUnsafe game@(turn, board@(p1Pits, p1Store, p2Pits, p2Store)) move
             distributedBoard = (map snd dP1P, snd dP1S, map snd dP2P, snd dP2S)
             --Find where it landed, if -1, then it doesn't matter and goes to otherwise
             (landingIndex, amountAtIndex) = findLandingIndexOnBoard distribute 
+            
  
             --A function to compute the board given a steal is present at the landingIndex
-            steal :: Board -> Board
+            steal :: Board -> Maybe Board
             steal (p1Pits, p1Store@(p1StoreIndex, p1StoreMarbles), p2Pits, p2Store@(p2StoreIndex, p2StoreMarbles)) = 
                 let opposite = landingIndex + 2*(7-landingIndex) -- Find the opposite index algorithmically
                     (playerSide, opponentSide) = if turn == P1 then (p1Pits,p2Pits) else (p2Pits,p1Pits) -- Figure out whos moving
                     oppositeMarbles = lookUpUnsafe opposite opponentSide -- Figure out how many marbles are in the opposite pit
                     newOpponentSide = changeValue opposite 0 opponentSide -- Clear the opposite pit
                     newPlayerSide   = changeValue landingIndex 0 playerSide -- Clear the landing Pit
-                in  if turn == P1 -- rebuild the board using the changed values, adding the marbles to the correct store
+                in  if oppositeMarbles == 0 then Nothing else Just (
+                    if turn == P1 -- rebuild the board using the changed values, adding the marbles to the correct store
                     then (newPlayerSide, (7,p1StoreMarbles+1+oppositeMarbles), newOpponentSide, p2Store) 
-                    else (newOpponentSide, p1Store, newPlayerSide, (0,p2StoreMarbles+1+oppositeMarbles))
+                    else (newOpponentSide, p1Store, newPlayerSide, (0,p2StoreMarbles+1+oppositeMarbles)))
 
             -- A function to take the output of the updatePit ran on a board and find if the landing index
             -- is important, and then what it is.
@@ -186,9 +190,6 @@ completeMoveUnsafe game@(turn, board@(p1Pits, p1Store, p2Pits, p2Store)) move
 validMoves :: Game -> [Move]
 validMoves (turn, (p1Pits, p1Store, p2Pits, p2Store)) = 
     [index | pit@(index,marbles) <- (if turn == P1 then p1Pits else p2Pits), marbles > 0]
-    where 
-        validPit :: Pit -> Bool
-        validPit (idx, num) = (idx `elem` pits turn) && (num > 0)
 
 --Extra: Checks if a move is valid given a game (Might be handy for error handling idk)
 isValidMove :: Game -> Move -> Bool          
@@ -198,5 +199,44 @@ isValidMove game@(turn,board) move
     | move `notElem` (pits turn) = False
     | boardLookUpUnsafe move board == 0 = False
     | otherwise = True
+
+---------------------------------------
+
+------------Story Seventeen------------
+
+rateGame :: Game -> Int
+rateGame game@(turn,board@(sideOne,storeOne,sideTwo,storeTwo)) =
+    if winner == Nothing
+        then sum [turnPoint,storeOnePoints,storeTwoPoints,sideOnePoints,sideTwoPoints]
+        else case winner of
+             Just (Win P1)  ->  400
+             Just (Win P2)  -> -400
+             Just Tie ->  0
+    where turnPoint      = if turn == P1 then 8 else -8
+          storeOnePoints = 8 * (snd storeOne)
+          storeTwoPoints = -8 * (snd storeTwo)
+          sideOnePoints  = pointsSideTwo sideOne 
+          sideTwoPoints  = -1 * pointsSideTwo sideTwo
+          winner         = checkWinner game
+
+pointsSideTwo :: [Pit] -> Int
+pointsSideTwo [] = 0
+pointsSideTwo ((index,marbles):pits) = 
+    if marbles==0
+        then 8 + (pointsSideTwo pits)
+        else weightedMarbles + (pointsSideTwo pits)
+    where weightedMarbles = ((((index `mod` 7)-1) `div` 2)+1) * marbles
+            -- ^ Yay algebra to get the modifier from the index
+{-
+-- (Turn,([Pit],Pit,[Pit],Pit))
+pointsSide :: Board -> [Index] -> Int
+pointsSide board [] = 0
+pointsSide board (index:idxs)  
+    | index `elem` [1,2,8,9]   = if numMarbles==0 then (8 + pointsSide board idxs) else (3 * numMarbles + pointsSide board idxs)
+    | index `elem` [3,4,10,11] = if numMarbles==0 then (8 + pointsSide board idxs) else (2 * numMarbles + pointsSide board idxs)
+    | index `elem` [5,6,12,13] = if numMarbles==0 then (8 + pointsSide board idxs) else (1 * numMarbles + pointsSide board idxs)
+    | otherwise                = error "pointsSide: The given index is not in a playable side."
+    where numMarbles = (lookUpUnsafe index board)
+-}
 
 ---------------------------------------

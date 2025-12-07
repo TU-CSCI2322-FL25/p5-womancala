@@ -3,6 +3,8 @@ module Solving where
 import Game
 import Control.Applicative ((<|>))
 
+type Rating = Int
+
 ------------- Story Nine ---------------
 
 whoWillWin :: Game -> Winner -- Doesn't need to consider no moves in validmoves because that is caught in checkwinner 
