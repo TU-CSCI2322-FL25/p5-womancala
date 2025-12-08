@@ -55,7 +55,8 @@ prettyPrint (turn,board@(sideOne,pitOne,sideTwo,pitTwo)) = "Current turn: "++(sh
 
 readGame :: String -> Game
 readGame str = (turn, board)
-      where (turnString:pitStrings) = lines str
+      where listOfLines = lines str
+            (turnString:pitStrings) = if (length listOfLines)==15 then listOfLines else error "File format is incorrect"
             turn = case (stringToPlayer turnString) of 
                     Just value -> value
                     Nothing -> error "readGame couldn't find the turn"
@@ -96,7 +97,7 @@ readGame str = (turn, board)
 ----------- Story Thirteen -------------
 
 showGame :: Game -> String
-showGame game@(turn,board@(pitsOne,storeOne,pitsTwo,storeTwo)) = unlines ((show turn):((aux pitsOne)++(aux [storeOne])++(aux pitsTwo)++(aux [storeTwo])))
+showGame game@(turn,board@(pitsOne,storeOne,pitsTwo,storeTwo)) = unlines ((show turn):((aux [storeTwo])++(aux pitsOne)++(aux [storeOne])++(aux pitsTwo)))
     where aux :: [Pit] -> [String]
           aux [] = []
           aux ((index,numMarbles):ps) = (((show index)++" "++(show numMarbles)):aux ps)
