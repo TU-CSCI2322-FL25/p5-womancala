@@ -356,7 +356,13 @@ options =
 
 -- Displayed when -h / --help is used or when invalid input is given
 helpMessage :: String
-helpMessage = usageInfo "Womancala Help:\n\nUsage: womancala [options] <gamefile>\n\nOptions:" options
+helpMessage = usageInfo ("Board Syntax:\n"++
+                        "-----------------------------------------\n"++
+                        "|    | 13 | 12 | 11 | 10 |  9 |  8 |    |\n"++
+                        "| S2 |-----------------------------| S1 |\n"++
+                        "|    |  1 |  2 |  3 |  4 |  5 |  6 |    |\n"++
+                        "-----------------------------------------\n\n"++
+                        "Womancala Help:\n\nUsage: womancala [options] <gamefile>\n\nOptions:") options
 
 -- Parses flags, returns them with their arguments
 parseFlags :: IO ([Flag], [String])
