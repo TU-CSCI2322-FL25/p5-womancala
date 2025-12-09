@@ -148,6 +148,8 @@ main = do
                 helpFlag flags game
             else if Print `elem` flags then
                 printFlag flags game
+            else if Interactive `elem` flags then
+                interactiveFlag flags game
             else putStr "Not yet implemented" -- This is the whoMightWin case, needs to consider depth
         _ -> do
             putStrLn "Please provide a game file."
@@ -189,8 +191,6 @@ winnerFlag flags game@(turn, _) = do
 
 ----------------------------------------
 
-----------------------------------------
-
 ----------- Story Twenty Four ----------
 -- Supports the -h and --help 
 helpFlag :: [Flag] -> Game -> IO ()
@@ -227,7 +227,102 @@ moveFlag flags game@(turn, _) = do
 ----------------------------------------
 
 ---------- Interactive Mode (27) -------
--- Support the -i flag, needs -l --
+-- Support the -i flag, needs -d and -2p -2c
+interactiveFlag :: [Flag] -> Game -> IO ()
+interactiveFlag flags game = 
+    if TwoPlayer `elem` flags then do
+        winner <- twoPlayerGame game
+        printWinner winner
+    else if TwoComputer `elem` flags then do
+        depth <- getDepthFromPlayer
+        winner <- noPlayerGame game depth $ fromMaybe 8 (checkDepthInFlags flags)
+        printWinner winner
+    else do
+        playerTurn <- getTurnFromPlayer
+        winner <- onePlayerGame playerTurn game $ fromMaybe 8 (checkDepthInFlags flags)
+        printWinner winner
+
+printWinner :: Winner -> IO ()
+printWinner (Win P1) = putStrLn "P1 wins!"
+printWinner (Win P2) = putStrLn "P2 wins!"
+printWinner Tie      = putStrLn "It's a tie!"
+
+checkDepthInFlags :: [Flag] -> Maybe Int
+checkDepthInFlags [] = Nothing
+checkDepthInFlags ((Depth d):xs) = 
+    case readMaybe d of
+        Just n -> Just n
+        Nothing -> error "Invalid value for depth flag."
+checkDepthInFlags (x:xs) = checkDepthInFlags xs
+
+getDepthFromPlayer :: IO Int
+getDepthFromPlayer = do
+    putStrLn "What is the depth for P2?"
+    num <- getLine
+    case readMaybe num of
+        Just n -> return n
+        Nothing -> do
+            putStrLn"Invalid depth, try again."
+            getDepthFromPlayer
+
+twoPlayerGame :: Game -> IO Winner
+twoPlayerGame game@(turn, board) =
+    case checkWinner game of
+        Just w -> return w
+        Nothing -> do
+            putStrLn $ prettyPrint game 
+            move <- getMoveFromPlayer game
+            twoPlayerGame $ completeMoveUnsafe game move
+
+getMoveFromPlayer :: Game -> IO Move
+getMoveFromPlayer game@(turn, board) = do
+    putStrLn $ (show turn) ++ ", what is your move?"
+    response <- getLine
+    case readMaybe response of 
+        Just num -> 
+            if isValidMove game num 
+            then return num
+            else do
+                putStrLn "Invalid Move! Try again."
+                getMoveFromPlayer game
+        Nothing -> do
+            putStrLn "Invalid Move! Try again."
+            getMoveFromPlayer game
+
+onePlayerGame :: Turn -> Game -> Int -> IO Winner 
+onePlayerGame playerTurn game@(turn, board) depth = 
+    case checkWinner game of
+        Just w -> return w
+        Nothing -> do
+            if turn == playerTurn then do
+                putStrLn $ prettyPrint game
+                move <- getMoveFromPlayer game
+                onePlayerGame playerTurn (completeMoveUnsafe game move) depth
+            else do
+                putStrLn $ "Computer's Turn..."
+                putStrLn $ prettyPrint game
+                onePlayerGame playerTurn (completeMoveUnsafe game (snd (whoMightWin game depth))) depth
+    
+getTurnFromPlayer :: IO Turn
+getTurnFromPlayer = do 
+    putStrLn "Are you P1 or P2?"
+    response <- getLine
+    case response of 
+        "P1" -> return P1
+        "P2" -> return P2
+        otherwise -> getTurnFromPlayer
+
+noPlayerGame :: Game -> Int -> Int -> IO Winner
+noPlayerGame game@(turn, board) depth1 depth2 = 
+    case checkWinner game of
+        Just w -> return w
+        Nothing -> do
+            if turn == P1 then do
+                putStrLn $ prettyPrint game
+                noPlayerGame (completeMoveUnsafe game (snd (whoMightWin game depth1))) depth1 depth2
+            else do
+                putStrLn $ prettyPrint game
+                noPlayerGame (completeMoveUnsafe game (snd (whoMightWin game depth2))) depth1 depth2
 ----------------------------------------
 
 ------- Command Line Interface ----------
@@ -240,6 +335,9 @@ data Flag
     | Move String   -- -m <move>, --move <move> (story 25)
     | Help          -- -h, --help (story 24)
     | Print         -- -p, --print 
+    | Interactive   -- -i, --interactive (story 27) 
+    | TwoPlayer     -- -2, --twoplayer
+    | TwoComputer   -- -c, --twocomputer
     deriving (Eq, Show)
 
 -- Flags recognized by GetOpt
@@ -247,10 +345,13 @@ options :: [OptDescr Flag]
 options =
     [ Option ['w'] ["winner"] (NoArg Winner) "Print the ultimate best move."
     , Option ['v'] ["verbose"] (NoArg Verbose) "Verbose output / pretty print in -m mode."
-    , Option ['d'] ["depth"] (ReqArg Depth "NUMBER") "Specify cutoff depth for best move calculation."
+    , Option ['d'] ["depth"] (ReqArg Depth "NUMBER") "Specify cutoff depth for best move calculation of the AI, P1 for interactive mode with 2 AI."
     , Option ['m'] ["move"] (ReqArg Move "MOVE") "Make the specified move and print the resulting board."
     , Option ['h'] ["help"] (NoArg Help) "Show help message."
     , Option ['p'] ["print"] (NoArg Print) "Print out the input board"
+    , Option ['i'] ["interactive"] (NoArg Interactive) "Play against the computer, specify depth with -d"
+    , Option ['2'] ["twoplayer"] (NoArg TwoPlayer) "Play against another human in the interactive mode."
+    , Option ['c'] ["twocomputer"] (NoArg TwoComputer) "Have two computers play against each other in interactive mode."
     ]
 
 -- Displayed when -h / --help is used or when invalid input is given

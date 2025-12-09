@@ -5,6 +5,7 @@ import Game
 import Control.Applicative ((<|>))
 import Data.List (maximumBy, minimumBy)
 import Data.Ord (comparing)
+import Debug.Trace
 
 type Rating = Int 
 
@@ -25,18 +26,27 @@ whoWillWin game@(turn, board) = case checkWinner game of -- I wonder if we can o
 ------------- Story 18/19 --------------
 
 whoMightWin :: Game -> Int -> (Rating, Move)
-whoMightWin game 0 = error "Move depth can't be 0." 
-whoMightWin game@(turn, board) depth = 
-        if depth == 1 
-        then tripleToTuple (comparison (comparing (\(x,y,z) -> x)) possibleMoves)
-        else case hasWinState deepMoves of 
-            Nothing -> comparison (comparing fst) deepMoves
-            Just moveTuple -> moveTuple 
+whoMightWin game@(turn, board) depth 
+    | depth == 0 = error "Move depth can't be 0." 
+    | null possibleMoves = (rateGame game, undefined)
+    | depth == 1 = tripleToTuple (comparison (comparing (\(x,y,z) -> x)) possibleMoves)
+    | otherwise = 
+        case hasWinStateTriple possibleMoves of
+            Nothing -> case hasWinState nextLayer of 
+                            Nothing -> comparison (comparing fst) nextLayer
+                            Just moveTuple -> moveTuple 
+            Just triple -> tripleToTuple triple
 
     where possibleMoves = [(rateGame newGame, move, newGame) | move <- validMoves game, let newGame = completeMoveUnsafe game move]
-          deepMoves = [(fst (whoMightWin newState (depth-1)), possibleMove) | (rating, possibleMove, newState) <- possibleMoves]
-
+          nextLayer = deepMoves possibleMoves
           comparison = if turn == P1 then (maximumBy) else (minimumBy)
+
+          deepMoves :: [(Rating, Move, Game)] -> [(Rating, Move)]
+          deepMoves [] = []
+          deepMoves ((rating, possibleMove, newState):xs) = 
+            if abs rating >= 400
+            then (rating, possibleMove):(deepMoves xs)
+            else ((fst (whoMightWin newState (depth-1))), possibleMove):(deepMoves xs)
 
           hasWinState :: [(Rating, Move)] -> Maybe (Rating, Move)
           hasWinState [] = Nothing
@@ -45,8 +55,16 @@ whoMightWin game@(turn, board) depth =
             then Just ratingTuple 
             else hasWinState xs  
 
+          hasWinStateTriple :: [(Rating, Move, Game)] -> Maybe (Rating, Move, Game)
+          hasWinStateTriple [] = Nothing
+          hasWinStateTriple (ratingTriple@(rating, move, game):xs) = 
+            if (rating >= 400 && turn == P1) || (rating <= -400 && turn == P2) 
+            then Just ratingTriple
+            else hasWinStateTriple xs  
+
           tripleToTuple :: (a, b, c) -> (a, b)
           tripleToTuple (f,s,t) = (f,s) 
+
 
 ----------------------------------------
 
