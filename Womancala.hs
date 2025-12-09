@@ -140,87 +140,189 @@ main = do
     case nonOpts of
         [filepath] -> do
             game <- loadGame filepath
-            dispatchFlags flags game
+            if Winner `elem` flags then 
+                winnerFlag flags game
+            else if hasMove flags then
+                moveFlag flags game
+            else if Help `elem` flags then
+                helpFlag flags game
+            else if Print `elem` flags then
+                printFlag flags game
+            else if Interactive `elem` flags then
+                interactiveFlag flags game
+            else putStr "Not yet implemented" -- This is the whoMightWin case, needs to consider depth
         _ -> do
             putStrLn "Please provide a game file."
             putStrLn helpMessage
             exitFailure
 
+hasMove :: [Flag] -> Bool
+hasMove [] = False
+hasMove (Move _:xs) = True
+hasMove(x:xs) = hasMove xs
+
 ----------------------------------------
-----------------------------------------
+
+printFlag :: [Flag] -> Game -> IO ()
+printFlag flags game = putStrLn $ prettyPrint game
 
 ----------- Story Twenty Two -----------
 -- Support the  -w, --winner flag. Uses Story 9/Story 10 in the second sprint with no cut-off depth.
-winnerFlag :: IO ()
-winnerFlag = do
-    (flags, nonOpts) <- parseFlags
-    case nonOpts of
-        [filepath] -> do
-            game <- loadGame filepath
-            dispatchFlags (Winner : flags) game
-        _ -> do
-            putStrLn "Please provide a single game file."
-            putStrLn helpMessage
-            exitFailure
+winnerFlag :: [Flag] -> Game -> IO ()
+winnerFlag flags game@(turn, _) = do
+    case bestMove game of
+        Nothing -> do
+            putStrLn "Game is already complete."
+            exitSuccess
+        Just mv -> do
+            putStrLn (show mv)
 
-----------------------------------------
-
------------ Story Twenty Three ---------
--- Support the -d <num> and --depth <num> 
--- Shouldn't have effect when combined with the -w flag.
-depthFlag :: IO ()
-depthFlag = do
-    (flags, nonOpts) <- parseFlags
-    case nonOpts of
-        [filepath] -> do
-            game <- loadGame filepath
-            dispatchFlags flags game
-        _ -> do
-            putStrLn "Please provide a game file."
-            putStrLn helpMessage
-            exitFailure
+            -- Story 26 - Verbose
+            if hasFlag (== Verbose) flags
+                then do
+                    let nextGame = completeMoveUnsafe game mv
+                    if hasFlag (== Winner) flags
+                        then do
+                            let outcome = whoWillWin nextGame
+                            putStrLn ("Quality: " ++ resultString turn outcome)
+                        else do
+                            putStrLn ("Rating: " ++ show (rateGame nextGame))
+                else return ()
 
 ----------------------------------------
 
 ----------- Story Twenty Four ----------
 -- Supports the -h and --help 
-helpFlag :: IO ()
-helpFlag = do
-    putStrLn helpMessage
-    exitSuccess
+helpFlag :: [Flag] -> Game -> IO ()
+helpFlag flags game@(turn, _) = do
+    if hasFlag (== Help) flags
+        then do putStrLn helpMessage
+                exitSuccess
+        else return ()
 
 ----------------------------------------
 
 ----------- Story Twenty Five ----------
 -- Supports the -m <move> and --move <move> 
-moveFlag :: IO ()
-moveFlag = do
-    (flags, nonOpts) <- parseFlags
-    case nonOpts of
-        [filepath] -> do
-            game <- loadGame filepath
-            dispatchFlags flags game
-        _ -> do
-            putStrLn "Please provide a game file."
-            putStrLn helpMessage
-            exitFailure
+moveFlag :: [Flag] -> Game -> IO ()
+moveFlag flags game@(turn, _) = do
+    case firstMoveStr flags of
+        Just mvStr ->
+            case parseMove mvStr of
+                Nothing -> do
+                    putStrLn "Invalid input for move."
+                    exitFailure
+                Just mv ->
+                    case completeMove game mv of
+                        Nothing -> do
+                            putStrLn "Move was invalid."
+                            exitFailure
+                        Just newGame -> do
+                            if hasFlag (== Verbose) flags
+                                then putStr (prettyPrint newGame)
+                                else putStrLn (showGame newGame)
+                            exitSuccess
+        Nothing -> return ()
 
 ----------------------------------------
 
------------ Story Twenty Sixth ---------
--- Supports the -v and --verbose 
-verboseFlag :: IO ()
-verboseFlag = do
-    (flags, nonOpts) <- parseFlags
-    case nonOpts of
-        [filepath] -> do
-            game <- loadGame filepath
-            dispatchFlags flags game
-        _ -> do
-            putStrLn "Please provide a game file."
-            putStrLn helpMessage
-            exitFailure
+---------- Interactive Mode (27) -------
+-- Support the -i flag, needs -d and -2p -2c
+interactiveFlag :: [Flag] -> Game -> IO ()
+interactiveFlag flags game = 
+    if TwoPlayer `elem` flags then do
+        winner <- twoPlayerGame game
+        printWinner winner
+    else if TwoComputer `elem` flags then do
+        depth <- getDepthFromPlayer
+        winner <- noPlayerGame game depth $ fromMaybe 8 (checkDepthInFlags flags)
+        printWinner winner
+    else do
+        playerTurn <- getTurnFromPlayer
+        winner <- onePlayerGame playerTurn game $ fromMaybe 8 (checkDepthInFlags flags)
+        printWinner winner
 
+printWinner :: Winner -> IO ()
+printWinner (Win P1) = putStrLn "P1 wins!"
+printWinner (Win P2) = putStrLn "P2 wins!"
+printWinner Tie      = putStrLn "It's a tie!"
+
+checkDepthInFlags :: [Flag] -> Maybe Int
+checkDepthInFlags [] = Nothing
+checkDepthInFlags ((Depth d):xs) = 
+    case readMaybe d of
+        Just n -> Just n
+        Nothing -> error "Invalid value for depth flag."
+checkDepthInFlags (x:xs) = checkDepthInFlags xs
+
+getDepthFromPlayer :: IO Int
+getDepthFromPlayer = do
+    putStrLn "What is the depth for P2?"
+    num <- getLine
+    case readMaybe num of
+        Just n -> return n
+        Nothing -> do
+            putStrLn"Invalid depth, try again."
+            getDepthFromPlayer
+
+twoPlayerGame :: Game -> IO Winner
+twoPlayerGame game@(turn, board) =
+    case checkWinner game of
+        Just w -> return w
+        Nothing -> do
+            putStrLn $ prettyPrint game 
+            move <- getMoveFromPlayer game
+            twoPlayerGame $ completeMoveUnsafe game move
+
+getMoveFromPlayer :: Game -> IO Move
+getMoveFromPlayer game@(turn, board) = do
+    putStrLn $ (show turn) ++ ", what is your move?"
+    response <- getLine
+    case readMaybe response of 
+        Just num -> 
+            if isValidMove game num 
+            then return num
+            else do
+                putStrLn "Invalid Move! Try again."
+                getMoveFromPlayer game
+        Nothing -> do
+            putStrLn "Invalid Move! Try again."
+            getMoveFromPlayer game
+
+onePlayerGame :: Turn -> Game -> Int -> IO Winner 
+onePlayerGame playerTurn game@(turn, board) depth = 
+    case checkWinner game of
+        Just w -> return w
+        Nothing -> do
+            if turn == playerTurn then do
+                putStrLn $ prettyPrint game
+                move <- getMoveFromPlayer game
+                onePlayerGame playerTurn (completeMoveUnsafe game move) depth
+            else do
+                putStrLn $ "Computer's Turn..."
+                putStrLn $ prettyPrint game
+                onePlayerGame playerTurn (completeMoveUnsafe game (snd (whoMightWin game depth))) depth
+    
+getTurnFromPlayer :: IO Turn
+getTurnFromPlayer = do 
+    putStrLn "Are you P1 or P2?"
+    response <- getLine
+    case response of 
+        "P1" -> return P1
+        "P2" -> return P2
+        otherwise -> getTurnFromPlayer
+
+noPlayerGame :: Game -> Int -> Int -> IO Winner
+noPlayerGame game@(turn, board) depth1 depth2 = 
+    case checkWinner game of
+        Just w -> return w
+        Nothing -> do
+            if turn == P1 then do
+                putStrLn $ prettyPrint game
+                noPlayerGame (completeMoveUnsafe game (snd (whoMightWin game depth1))) depth1 depth2
+            else do
+                putStrLn $ prettyPrint game
+                noPlayerGame (completeMoveUnsafe game (snd (whoMightWin game depth2))) depth1 depth2
 ----------------------------------------
 
 ------- Command Line Interface ----------
@@ -232,6 +334,10 @@ data Flag
     | Depth String  -- -d <number>, --depth <number> (story 23)
     | Move String   -- -m <move>, --move <move> (story 25)
     | Help          -- -h, --help (story 24)
+    | Print         -- -p, --print 
+    | Interactive   -- -i, --interactive (story 27) 
+    | TwoPlayer     -- -2, --twoplayer
+    | TwoComputer   -- -c, --twocomputer
     deriving (Eq, Show)
 
 -- Flags recognized by GetOpt
@@ -239,9 +345,13 @@ options :: [OptDescr Flag]
 options =
     [ Option ['w'] ["winner"] (NoArg Winner) "Print the ultimate best move."
     , Option ['v'] ["verbose"] (NoArg Verbose) "Verbose output / pretty print in -m mode."
-    , Option ['d'] ["depth"] (ReqArg Depth "NUMBER") "Specify cutoff depth for best move calculation."
+    , Option ['d'] ["depth"] (ReqArg Depth "NUMBER") "Specify cutoff depth for best move calculation of the AI, P1 for interactive mode with 2 AI."
     , Option ['m'] ["move"] (ReqArg Move "MOVE") "Make the specified move and print the resulting board."
     , Option ['h'] ["help"] (NoArg Help) "Show help message."
+    , Option ['p'] ["print"] (NoArg Print) "Print out the input board"
+    , Option ['i'] ["interactive"] (NoArg Interactive) "Play against the computer, specify depth with -d"
+    , Option ['2'] ["twoplayer"] (NoArg TwoPlayer) "Play against another human in the interactive mode."
+    , Option ['c'] ["twocomputer"] (NoArg TwoComputer) "Have two computers play against each other in interactive mode."
     ]
 
 -- Displayed when -h / --help is used or when invalid input is given
@@ -285,61 +395,4 @@ resultString :: Player -> Winner -> String
 resultString turn result =
     case result of
         Tie       -> "tie"
-        Win p     -> if p == turn then "win" else "lose"
-
--- Executes the given flags
-dispatchFlags :: [Flag] -> Game -> IO ()
-dispatchFlags flags game@(turn, _) = do
-    -- Story 24 - Help flag
-    if hasFlag (== Help) flags
-        then do putStrLn helpMessage
-                exitSuccess
-        else return ()
-
-    -- Story 23 - Depth flag: UNIMPLEMENTED
-    -- I believe we'll need Story 18 to complete this
-    -- case firstDepth flags of
-    --     Just ds ->
-    --         case readMaybe ds of
-    --             Nothing -> do
-    --             Just _ ->
-    --     Nothing -> return ()
-
-    -- Story 25 - Move flag
-    case firstMoveStr flags of
-        Just mvStr ->
-            case parseMove mvStr of
-                Nothing -> do
-                    putStrLn "Invalid input for move."
-                    exitFailure
-                Just mv ->
-                    case completeMove game mv of
-                        Nothing -> do
-                            putStrLn "Move was invalid."
-                            exitFailure
-                        Just newGame -> do
-                            if hasFlag (== Verbose) flags
-                                then putStr (prettyPrint newGame)
-                                else putStrLn (showGame newGame)
-                            exitSuccess
-        Nothing -> return ()
-
-    -- Story 22 - Winner flag
-    case bestMove game of
-        Nothing -> do
-            putStrLn "Game is already complete."
-            exitSuccess
-        Just mv -> do
-            putStrLn (show mv)
-
-            -- Story 26 - Verbose
-            if hasFlag (== Verbose) flags
-                then do
-                    let nextGame = completeMoveUnsafe game mv
-                    if hasFlag (== Winner) flags
-                        then do
-                            let outcome = whoWillWin nextGame
-                            putStrLn ("Quality: " ++ resultString turn outcome)
-                        else do
-                            putStrLn ("Rating: " ++ show (rateGame nextGame))
-                else return ()
+        Win p     -> "win " ++ show (p)
