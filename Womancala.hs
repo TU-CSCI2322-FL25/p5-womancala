@@ -150,7 +150,7 @@ main = do
                 printFlag flags game
             else if Interactive `elem` flags then
                 interactiveFlag flags game
-            else putStr "Not yet implemented" -- This is the whoMightWin case, needs to consider depth
+            else baseCase flags game
         _ -> do
             putStrLn "Please provide a game file."
             putStrLn helpMessage
@@ -191,6 +191,24 @@ winnerFlag flags game@(turn, _) = do
 
 ----------------------------------------
 
+baseCase :: [Flag] -> Game -> IO ()
+baseCase flags game@(turn, board) = if checkWinner game /= Nothing then putStrLn "Game is already over." else  
+    if Verbose `elem` flags then do
+            case checkWinnerFromRating rating of
+                Just a -> putStrLn ("Best Move: " ++ (show move) ++ " Outcome: " ++ (show a))
+                Nothing -> putStrLn ("Best Move: " ++ (show move) ++ " Rating: " ++ (show rating))
+        else 
+            putStrLn ("Best Move: " ++ (show move))
+    where (rating, move) = case checkDepthInFlags flags of 
+            Nothing -> whoMightWin game 8
+            Just depth -> whoMightWin game depth
+
+checkWinnerFromRating :: Rating -> Maybe Winner
+checkWinnerFromRating rating 
+    | rating == 400  = Just $ Win P1
+    | rating == -400 = Just $ Win P2
+    | rating == 0 = Just Tie
+    | otherwise = Nothing
 ----------- Story Twenty Four ----------
 -- Supports the -h and --help 
 helpFlag :: [Flag] -> Game -> IO ()
@@ -235,7 +253,7 @@ interactiveFlag flags game =
         printWinner winner
     else if TwoComputer `elem` flags then do
         depth <- getDepthFromPlayer
-        winner <- noPlayerGame game depth $ fromMaybe 8 (checkDepthInFlags flags)
+        winner <- noPlayerGame game (fromMaybe 8 (checkDepthInFlags flags)) depth
         printWinner winner
     else do
         playerTurn <- getTurnFromPlayer
